@@ -1097,7 +1097,7 @@ void ItemManager::parseGamesXml(ParseInfo& pi)
 	if (!pi.rootNode.IsValid())
 		return;
 
-	uint32 beforeCount = BaseManager::getCount();
+	uint32 beforeCount = getCount();
 
 	ParseInfo gamePi(pi);
 
@@ -1130,7 +1130,7 @@ void ItemManager::parseGamesXml(ParseInfo& pi)
 		parseGameXml(gid, gamePi);
 	});
 
-	uint32 afterCount = BaseManager::getCount() - beforeCount;
+	uint32 afterCount = getCount() - beforeCount;
 
 	if (afterCount > 0)
 	{
@@ -1401,6 +1401,7 @@ UserCore::Item::ItemInfoI* ItemManager::findItemInfo(DesuraId id)
 
 UserCore::Item::ItemHandle* ItemManager::findItemHandleNorm(DesuraId id)
 {
+	std::lock_guard<std::mutex> guard(m_ItemLock);
 	return BaseManager::findItem(id.toInt64());
 }
 

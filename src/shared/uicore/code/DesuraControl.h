@@ -38,7 +38,7 @@ class MenuStrip;
 class ButtonStrip;
 class UsernameBox;
 class gcStatusBar;
-
+class ItemActiveBar;
 class BaseToolBarControl;
 
 typedef struct
@@ -85,6 +85,7 @@ protected:
 	DesuraMenuFiller *m_pFiller;
 	FrameButtons* m_pFrameButtons;
 
+	ItemActiveBar *m_ActiveBar;
 	gcImageButton *m_pAvatar;
 
 	void unloadSearch(baseTabPage* page);

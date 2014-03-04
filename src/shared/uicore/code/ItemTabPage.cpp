@@ -31,178 +31,7 @@ $/LicenseInfo$
 
 #include "gcWebHost.h"
 #include "gcWebControl.h"
-#include "gcJSBinding.h"
 
-#include "cef_desura_includes/ChromiumBrowserI.h"
-
-
-
-DesuraJSBinding *GetJSBinding();
-
-
-class JSEventMap
-{
-public:
-	ChromiumDLL::JSObjHandle findEventFunction(const gcString &name, ChromiumDLL::JSObjHandle root)
-	{
-		std::lock_guard<std::mutex> al(m_EventLock);
-
-		if (!s_bMapValid)
-			return nullptr;
-
-		if (g_EventMap.find(name) != g_EventMap.end())
-			return g_EventMap[name];
-
-		if (!root.get() || root->isNull())
-			return nullptr;
-
-		if (g_EventMap.find("__desura__") == g_EventMap.end())
-			g_EventMap["__desura__"] = root->getValue("desura");
-
-		if (g_EventMap.find("__events__") == g_EventMap.end())
-			g_EventMap["__events__"] = g_EventMap["__desura__"]->getValue("events");
-
-		if (g_EventMap.find("__internal__") == g_EventMap.end())
-			g_EventMap["__internal__"] = g_EventMap["__events__"]->getValue("internal");
-
-		ChromiumDLL::JSObjHandle ret = g_EventMap["__internal__"]->getValue(name.c_str());
-		g_EventMap[name] = ret;
-
-		return ret;
-	}
-
-	void reset()
-	{
-		std::lock_guard<std::mutex> al(m_EventLock);
-		g_EventMap.clear();
-	}
-
-	bool isVaild()
-	{
-		std::lock_guard<std::mutex> al(m_EventLock);
-		return s_bMapValid;
-	}
-
-	void setValid(bool bState)
-	{
-		std::lock_guard<std::mutex> al(m_EventLock);
-		s_bMapValid = bState;
-	}
-private:
-	std::mutex m_EventLock;
-	std::map<gcString, ChromiumDLL::JSObjHandle> g_EventMap;
-	bool s_bMapValid = false;
-};
-
-static JSEventMap g_JSEventMap;
-
-
-void BrowserUICallback(ChromiumDLL::CallbackI* callback);
-
-class JSCallback : public ChromiumDLL::CallbackI
-{
-public:
-	JSCallback(ChromiumDLL::JavaScriptContextI* context, gcString name, const char* arg1, const char* arg2)
-	{
-		m_pContext = context;
-		m_szName = name;
-		m_uiNumArgs = 0;
-
-		if (arg1)
-		{
-			m_szArg1 = arg1;
-			m_uiNumArgs = 1;
-		}
-
-		if (arg2)
-		{
-			m_szArg2 = arg2;
-			m_uiNumArgs = 2;
-		}	
-
-		if (m_szName == "onItemListUpdated")
-			s_bGlobalItemUpdate = true;
-	}
-
-	void destroy() override
-	{
-		if (m_pContext)
-			m_pContext->destroy();
-
-		delete this;
-	}
-
-	void run() override
-	{
-		try
-		{
-			doRun();
-		}
-		catch (...)
-		{
-			Warning(gcString("JSCallback {0} threw exception", m_szName));
-		}
-
-		if (m_szName == "onItemListUpdated")
-			s_bGlobalItemUpdate = false;
-	}
-
-protected:
-	void doRun()
-	{
-		if (!g_JSEventMap.isVaild())
-			return;
-
-		if (m_szName == "onItemUpdate" && s_bGlobalItemUpdate)
-			return;
-
-		if (!m_pContext)
-			return;
-
-		m_pContext->enter();
-		ChromiumDLL::JSObjHandle funct = g_JSEventMap.findEventFunction(m_szName, m_pContext->getGlobalObject());
-
-		if (funct.get())
-		{
-			ChromiumDLL::JSObjHandle* argv = nullptr;
-
-			if (m_uiNumArgs > 0)
-				argv = new ChromiumDLL::JSObjHandle[m_uiNumArgs];
-
-			if (m_uiNumArgs >= 1)
-				argv[0] = m_pContext->getFactory()->CreateString(m_szArg1.c_str());
-
-			if (m_uiNumArgs >= 2)
-				argv[1] = m_pContext->getFactory()->CreateString(m_szArg2.c_str());
-
-			ChromiumDLL::JavaScriptFunctionArgs args;
-			args.function = nullptr;
-			args.context = m_pContext;
-			args.argc = m_uiNumArgs;
-			args.argv = argv;
-			args.factory = nullptr;
-			args.object = nullptr;
-
-			ChromiumDLL::JSObjHandle ret = funct->executeFunction(&args);
-			delete [] argv;
-		}
-
-		m_pContext->exit();
-	}
-
-private:
-	uint32 m_uiNumArgs;
-
-	gcString m_szArg1;
-	gcString m_szArg2;
-
-	ChromiumDLL::JavaScriptContextI* m_pContext;
-	gcString m_szName;
-
-	static bool s_bGlobalItemUpdate;
-};
-
-bool JSCallback::s_bGlobalItemUpdate = false;
 
 ItemTabPage::ItemTabPage(wxWindow* parent, gcWString homePage) 
 	: HtmlTabPage(parent, homePage, ITEMS)
@@ -226,7 +55,7 @@ ItemTabPage::ItemTabPage(wxWindow* parent, gcWString homePage)
 	killControlBar();
 
 	m_pItemControlBar->onButtonClickedEvent += guiDelegate(this, &ItemTabPage::onButtonClicked);
-	g_JSEventMap.setValid(true);
+	m_JSEventMap.setValid(true);
 
 	Bind(wxEVT_TIMER, &ItemTabPage::onPingTimer, this);
 }
@@ -235,8 +64,8 @@ ItemTabPage::~ItemTabPage()
 {
 	m_PingTimer.Stop();
 
-	g_JSEventMap.setValid(false);
-	g_JSEventMap.reset();
+	m_JSEventMap.setValid(false);
+	m_JSEventMap.reset();
 
 	m_pItemControlBar->onButtonClickedEvent -= guiDelegate(this, &ItemTabPage::onButtonClicked);
 	m_pItemControlBar->onSearchEvent -= guiDelegate(this, &ItemTabPage::onSearchStr);
@@ -290,7 +119,7 @@ void ItemTabPage::postEvent(const char* name, const char* arg1, const char* arg2
 	if (!webCtrl)
 		return;
 
-	BrowserUICallback(new JSCallback(webCtrl->getJSContext(), name, arg1, arg2));
+	BrowserUICallback(new JSCallback(m_JSEventMap, m_bGlobalItemUpdate, webCtrl->getJSContext(), name, arg1, arg2));
 }
 
 BaseToolBarControl* ItemTabPage::getToolBarControl()
@@ -386,7 +215,7 @@ void ItemTabPage::onButtonClicked(int32& id)
 
 void ItemTabPage::doneLoading()
 {
-	g_JSEventMap.reset();
+	m_JSEventMap.reset();
 
 	if (GetUserCore() && GetUserCore()->isDelayLoading())
 		postEvent("onDelayLoad");

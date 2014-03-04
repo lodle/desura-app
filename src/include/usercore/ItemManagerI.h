@@ -123,6 +123,20 @@ public:
 	virtual UserCore::Item::ItemInfoI* getItemInfo(uint32 index)=0;
 	virtual UserCore::Item::ItemHandleI* getItemHandle(uint32 index)=0;
 
+	template <typename T>
+	void for_each_handle(T &t)
+	{
+		for (uint32 x = 0; x < getCount(); ++x)
+			t(getItemHandle(x));
+	}
+
+	template <typename T>
+	void for_each_item(T &t)
+	{
+		for (uint32 x = 0; x < getCount(); ++x)
+			t(getItemInfo(x));
+	}
+
 	//! Get custom install path for an item
 	//!
 	//! @param itemId Item id

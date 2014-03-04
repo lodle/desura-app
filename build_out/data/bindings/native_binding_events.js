@@ -31,16 +31,16 @@ if (!desura.events.main)
     desura.events.main = {};	
 
 if (!desura.events.items)
-    desura.events.items = {};		
+    desura.events.items = {};
+
+if (!desura.events.active)
+	desura.events.active = {};
 	
 if (!desura.events.internal)
     desura.events.internal = {};
 	
 if (!desura.events.uploads)
     desura.events.uploads = {};
-
-if (!desura.events.chat)
-    desura.events.chat = {};
 	
 if (!desura.events.cip)
 	desura.events.cip = {};
@@ -306,25 +306,17 @@ if (!desura.events.cip)
 	
 	desura.events.uploads.onProgressEvent = newEvent();
 	
-	
-	
-	
-
 	desura.events.cip.onListUpdateEvent = newEvent();
-	
-	
 	
 	desura.events.items.onDelayLoadEvent = newEvent();		
 	desura.events.items.onDelayLoadDoneEvent = newEvent();		
 	
 	
-	
-	
-	
-	
-	
-	
-	
+	desura.events.active.onProgress = newEvent();
+	desura.events.active.onError = newEvent();
+	desura.events.active.onStageChange = newEvent();
+	desura.events.active.onComplete = newEvent();
+	desura.events.active.onPause = newEvent();
 	
 	
 	desura.events.internal.onTabClicked = function(tabName){
@@ -399,5 +391,26 @@ if (!desura.events.cip)
 		
 	desura.events.internal.onPing = function(){
 		desura.utils.ping();
-	};		
+	};
+	
+	
+	desura.events.internal.onActiveComplete = function(id, result){
+		desura.events.active.onComplete.trigger(id, result);
+	};
+	
+	desura.events.internal.onActiveProgress = function(id, prog){
+		desura.events.active.onProgress.trigger(id, prog);
+	};
+	
+	desura.events.internal.onActiveError = function(id, error){
+		desura.events.active.onError.trigger(id, error);
+	};
+	
+	desura.events.internal.onActivePause = function(id, paused){
+		desura.events.active.onPause.trigger(id, paused);
+	};
+	
+	desura.events.internal.onActiveStageChange = function(id, stage){
+		desura.events.active.onStageChange.trigger(id, stage);
+	};	
 })();

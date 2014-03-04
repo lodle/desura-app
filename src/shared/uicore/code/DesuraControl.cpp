@@ -41,6 +41,8 @@ $/LicenseInfo$
 #include "BaseToolBarControl.h"
 #include "managers/CVar.h"
 
+#include "ItemActiveBar.h"
+
 extern CVar gc_lastavatar;
 
 class DesuraMenuFiller : public MenuFiller
@@ -118,6 +120,9 @@ DesuraControl::DesuraControl(gcFrame* parent, bool offline, const char* szProvid
 	m_pUsernameBox = new UsernameBox(this, szUsername);
 	m_pMenuStrip = new MenuStrip(this);
 
+	m_ActiveBar = new ItemActiveBar(this);
+
+
 	m_sizerContent = new wxFlexGridSizer( 1, 1, 0, 0 );
 	m_sizerContent->AddGrowableCol( 0 );
 	m_sizerContent->AddGrowableRow( 0 );
@@ -183,7 +188,7 @@ DesuraControl::DesuraControl(gcFrame* parent, bool offline, const char* szProvid
 	fgSizer1->Add( fgSizer2, 1, wxEXPAND, 5 );
 
 	wxFlexGridSizer* fgSizer5;
-	fgSizer5 = new wxFlexGridSizer( 3, 1, 0, 0 );
+	fgSizer5 = new wxFlexGridSizer( 4, 1, 0, 0 );
 	fgSizer5->AddGrowableCol( 0 );
 	
 	fgSizer5->SetFlexibleDirection( wxBOTH );
@@ -210,7 +215,9 @@ DesuraControl::DesuraControl(gcFrame* parent, bool offline, const char* szProvid
 	}
 
 	fgSizer5->Add( m_sizerContent, 1, wxEXPAND, 5 );
-	
+	fgSizer5->Add( m_ActiveBar, 1, wxEXPAND, 0);
+
+
 	this->SetSizer( fgSizer5 );
 	this->Layout();
 

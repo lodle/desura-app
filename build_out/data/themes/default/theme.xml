@@ -12,6 +12,7 @@
 		<page name="chat">chat.html</page>
 		<page name="settings">settings.html</page>
 		<page name="cip">cip.html</page>
+		<page name="activebar">activebar.html</page>
 	</web>
 	
 	<!-- Colors can be in the format '#RRGGBBAA' or 'RRR GGG BBB AAA'-->

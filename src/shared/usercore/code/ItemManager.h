@@ -191,6 +191,8 @@ private:
 
 	std::mutex m_FavLock;
 	std::vector<DesuraId> m_vFavList;
+
+	std::mutex m_ItemLock;
 };
 
 
@@ -198,6 +200,7 @@ private:
 
 inline uint32 ItemManager::getCount()
 {
+	std::lock_guard<std::mutex> guard(m_ItemLock);
 	return BaseManager::getCount();
 }
 
@@ -213,6 +216,7 @@ inline UserCore::Item::ItemInfoI* ItemManager::getItemInfo(uint32 index)
 
 inline UserCore::Item::ItemHandleI* ItemManager::getItemHandle(uint32 index)
 {
+	std::lock_guard<std::mutex> guard(m_ItemLock);
 	return BaseManager::getItem(index);
 }
 

@@ -34,6 +34,8 @@ $/LicenseInfo$
 #include "usercore/UploadInfo.h"
 #include "util/gcOptional.h"
 
+#include "gcJSEventCache.h"
+
 class ItemToolBarControl;
 class BaseToolBarControl;
 
@@ -91,6 +93,9 @@ private:
 
 	wxTimer m_PingTimer;
 	bool m_bPingBack = true;
+
+	JSEventMap m_JSEventMap;
+	bool m_bGlobalItemUpdate;
 };
 
 #endif //DESURA_ITEMTABPAGE_H

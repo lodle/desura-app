@@ -262,6 +262,12 @@ CVar gc_safe_uploads("gc_safe_uploads", "0", CFLAG_USER);
 
 #ifdef DESURA_OFFICIAL_BUILD
 
+CONCOMMAND(cc_forceupdatepoll, "force_update_poll")
+{
+	if (GetUserCore())
+		GetUserCore()->forceUpdatePoll();
+}
+
 bool OnQaTestingChange(CVar* var, const char* val)
 {
 	//force the value to be set
