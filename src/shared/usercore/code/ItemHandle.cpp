@@ -43,6 +43,7 @@ $/LicenseInfo$
 #include "UIComplexModServiceTask.h"
 #include "UIPatchServiceTask.h"
 #include "UIUpdateServiceTask.h"
+#include "ComboDownloadInstallTask.h"
 
 #include "managers/Managers.h"
 #include "usercore/MCFThreadI.h"
@@ -52,42 +53,30 @@ $/LicenseInfo$
 
 #include "User.h"
 
-class BlankTask : public UserCore::ItemTask::BaseItemTask
+namespace
 {
-public:
-	BlankTask(UserCore::Item::ItemHandle* handle, UserCore::Item::ITEM_STAGE type) 
-		: BaseItemTask(type, "", handle)
+	class BlankTask : public UserCore::ItemTask::BaseItemTask
 	{
-	}
+	public:
+		BlankTask(UserCore::Item::ItemHandle* handle, UserCore::Item::ITEM_STAGE type) 
+			: BaseItemTask(type, "", handle)
+		{
+		}
 
-	virtual void doRun()
-	{
-	}
-};
+		virtual void doRun()
+		{
+		}
+	};
+}
 
-namespace UserCore
+using namespace UserCore::Item;
+
+
+ItemHandle::ItemHandle(ItemInfo* itemInfo, UserCore::UserI* user)
+	: m_pItemInfo(itemInfo)
+	, m_pUserCore(user)
+	, m_pEventHandler(new ItemHandleEvents(m_vHelperList))
 {
-namespace Item
-{
-
-ItemHandle::ItemHandle(ItemInfo* itemInfo, UserCore::User* user)
-{
-	m_uiHelperId = 0;
-	m_bPauseOnError = false;
-	m_bStopped = false;
-	m_pUserCore = user;
-
-	m_bLock = false;
-	m_pLockObject = nullptr;
-
-	m_pThread = nullptr;
-	m_pFactory = nullptr;
-	m_pItemInfo = itemInfo;
-
-	m_uiStage = ITEM_STAGE::STAGE_NONE;
-
-	m_pEventHandler = new ItemHandleEvents(m_vHelperList);
-	m_pGroup = nullptr;
 }
 
 ItemHandle::~ItemHandle()
@@ -101,7 +90,7 @@ void ItemHandle::setFactory(Helper::ItemHandleFactoryI* factory)
 	m_pFactory = factory;
 }
 
-UserCore::User* ItemHandle::getUserCore()
+UserCore::UserI* ItemHandle::getUserCore()
 {
 	return m_pUserCore;
 }
@@ -422,7 +411,20 @@ void ItemHandle::goToStageDownload(MCFBranch branch, MCFBuild build, bool test)
 		return;
 	}
 
-	registerTask(new UserCore::ItemTask::ValidateTask(this, branch, build));
+	auto bIsMod = getItemInfo()->getId().getType() != DesuraId::TYPE_GAME;
+
+	auto strInsPath = UTIL::FS::Path(getItemInfo()->getPath());
+	auto strCommonPath = UTIL::FS::Path(UTIL::OS::getAppInstallPath());
+
+	std::vector<UserCore::Item::ItemInfoI*> vModList;
+
+	if (!bIsMod)
+		getUserCore()->getItemManager()->getModList(getItemInfo()->getId(), vModList);
+
+	if (!bIsMod && vModList.empty() && !getItemInfo()->isComplex() && strInsPath.startsWith(strCommonPath))
+		registerTask(new UserCore::ItemTask::ComboDownloadInstallTask(this, branch, build));
+	else
+		registerTask(new UserCore::ItemTask::ValidateTask(this, branch, build));
 }
 
 void ItemHandle::goToStageDownload(const char* path)
@@ -636,9 +638,6 @@ void ItemHandle::goToStageInstall(const char* path, MCFBranch branch)
 		registerTask(new UserCore::ItemTask::InstallServiceTask(this, path, branch, helper));
 	}
 }
-
-
-
 
 void ItemHandle::stopThread()
 {
@@ -1358,5 +1357,3 @@ void ItemHandle::force()
 	group->startAction(this);
 }
 
-}
-}

@@ -23,60 +23,57 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_BASEITEMSERVICETASK_H
-#define DESURA_BASEITEMSERVICETASK_H
+#ifndef DESURA_COMBODOWNLOADINSTALLTASK_H
+#define DESURA_COMBODOWNLOADINSTALLTASK_H
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "BaseItemTask.h"
-#include "util_thread/BaseThread.h"
 
-namespace IPC
+namespace UnitTest
 {
-	class ServiceMainI;
+	class ComboDownloadInstallTaskFixture;
 }
 
 namespace UserCore
 {
-namespace ItemTask
-{
+	namespace ItemTask
+	{
+		class ComboDownloadInstallTask : public UserCore::ItemTask::BaseItemTask
+		{
+		public:
+			ComboDownloadInstallTask(UserCore::Item::ItemHandleI* handle, MCFBranch branch, MCFBuild build = MCFBuild());
+			virtual ~ComboDownloadInstallTask();
 
-class BaseItemServiceTask : public BaseItemTask
-{
-public:
-	BaseItemServiceTask(UserCore::Item::ITEM_STAGE type, const char* name, UserCore::Item::ItemHandle* handle, MCFBranch branch = MCFBranch(), MCFBuild = MCFBuild());
-	~BaseItemServiceTask();
+		protected:
+			void doRun() override;
 
-	bool hasStarted();
-
-protected:
-	virtual bool initService()=0;
-
-	virtual void onStop();
-	virtual void doRun();
-	virtual void onFinish();
+			void onStop() override;
+			void onPause() override;
+			void onUnpause() override;
+			void cancel() override;
 
 
+			void onProgress(MCFCore::Misc::ProgressInfo& p);
+			void updateStatusFlags();
+			void validateHeader(MCFBuild &build, MCFBranch &branch);
+			void onError(gcException &e);
+			void onComplete();
 
-	IPC::ServiceMainI* getServiceMain();
+		private:
+			friend class UnitTest::ComboDownloadInstallTaskFixture;
 
-	void waitForFinish();
-	void resetFinish();
-	void setFinished();
+			bool m_bUpdating = false;
+			bool m_bUnAuthed = false;
+			bool m_bInError = false;
 
-private:
-	::Thread::WaitCondition m_WaitCond;
-	volatile bool m_bFinished;
-	volatile bool m_bStarted;
-};
+			bool m_bDownloading = true;
 
-
-
+			MCFBuild m_LastInsBuild;
+		};
+	}
 }
-}
 
 
-
-
-#endif //DESURA_BASEITEMSERVICETASK_H
+#endif

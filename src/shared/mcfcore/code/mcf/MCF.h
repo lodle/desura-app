@@ -223,6 +223,9 @@ public:
 
 	void createCourgetteDiffs(MCFI* oldMcf, const char* outPath) override;
 
+
+	void downloadAndInstall(const char* szSavePath) override;
+
 protected:
 	//! A struct that holds the position of a MCFFile in two different Mcfs.
 	//! Used for compariting two Mcf's

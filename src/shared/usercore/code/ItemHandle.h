@@ -69,7 +69,7 @@ class ItemTaskGroup;
 class ItemHandle : public ItemHandleI
 {
 public:
-	ItemHandle(ItemInfo* itemInfo, UserCore::User* user);
+	ItemHandle(ItemInfo* itemInfo, UserCore::UserI* user);
 	~ItemHandle();
 
 	void setFactory(Helper::ItemHandleFactoryI* factory) override;
@@ -146,7 +146,7 @@ public:
 
 	UserCore::Item::ItemInfo* getItemInfoNorm();
 
-	UserCore::User* getUserCore();
+	UserCore::UserI* getUserCore();
 
 	bool getLock(void* obj);
 	bool isLocked();
@@ -192,25 +192,25 @@ protected:
 	bool checkPaused();
 
 private:
-	bool m_bPauseOnError;
-	bool m_bStopped;
+	bool m_bPauseOnError = false;
+	bool m_bStopped = false;
 
-	bool m_bLock;
-	void* m_pLockObject;
+	bool m_bLock = false;
+	void* m_pLockObject = nullptr;
 
 	std::vector<Helper::ItemHandleHelperI*> m_vHelperList;
 
-	uint32 m_uiHelperId;
-	ITEM_STAGE m_uiStage;
+	uint32 m_uiHelperId = 0;
+	ITEM_STAGE m_uiStage = ITEM_STAGE::STAGE_NONE;
 
 	std::recursive_mutex m_ThreadMutex;
-	UserCore::Item::ItemThread *m_pThread;
-	UserCore::Item::ItemInfo* m_pItemInfo;
-	UserCore::User* m_pUserCore;
+	UserCore::Item::ItemThread *m_pThread = nullptr;
+	UserCore::Item::ItemInfo* m_pItemInfo = nullptr;
+	UserCore::UserI* m_pUserCore = nullptr;
 
-	Helper::ItemHandleFactoryI* m_pFactory;
-	ItemHandleEvents* m_pEventHandler;
-	ItemTaskGroup* m_pGroup;
+	Helper::ItemHandleFactoryI* m_pFactory = nullptr;
+	ItemHandleEvents* m_pEventHandler = nullptr;
+	ItemTaskGroup* m_pGroup = nullptr;
 };
 
 

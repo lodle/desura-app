@@ -60,6 +60,9 @@ $/LicenseInfo$
 #include "UserTasks.h"
 #include "UserIPCPipeClient.h"
 
+#include "service_pipe/IPCServiceMain.h"
+#include "GameExplorerManager.h"
+
 CEXPORT const char* GetUserCoreVersion();
 
 class UpdateThread;
@@ -100,46 +103,66 @@ namespace Misc
 	} update_s;
 }
 
-
-enum PlatformType
+class UserExI
 {
-	PT_Item,
-	PT_Tool,
+public:
+#ifdef WIN32
+	virtual HWND getMainWindowHandle()=0;
+#endif
+
+	//! Downloads an image for an item
+	//!
+	//! @param itemInfo Item for which the image belongs
+	//! @param image Which image to download
+	//!
+	virtual void downloadImage(UserCore::Item::ItemInfo* itemInfo, uint8 image)=0;
+
+	//! Removes or adds an item to a desura account
+	//!
+	//! @param item Item for which to act appon
+	//! @param action Add or remove it
+	//!
+	virtual void changeAccount(DesuraId id, uint8 action)=0;
 };
 
-class User : public UserI
+class User : public UserI, public UserExI
 {
 public:
 	User();
 	~User();
 
-	virtual void init(const char* appDataPath, const char* szProviderUrl) override;
-	virtual void init(const char* appDataPath);
-	virtual const char* getAppDataPath();
-	virtual const char* getMcfCachePath();
+	UserExI* getUserEx() override
+	{
+		return this;
+	}
 
-	virtual void lockDelete();
-	virtual void unlockDelete();
+	void init(const char* appDataPath, const char* szProviderUrl) override;
+	void init(const char* appDataPath) override;
+	const char* getAppDataPath() override;
+	const char* getMcfCachePath() override;
+
+	void lockDelete() override;
+	void unlockDelete() override;
 
 	///////////////////////////////////////////////////////////////////////////////
 	// Login
 	///////////////////////////////////////////////////////////////////////////////
 
-	virtual void logIn(const char* user, const char* password);
-	virtual void logInTool(const char* user, const char* pass);
-	virtual void logOut(bool delAutoLogin = false, bool reInit = true);
-	virtual void saveLoginInfo();
-	virtual void logInCleanUp();
+	void logIn(const char* user, const char* password) override;
+	void logInTool(const char* user, const char* pass) override;
+	void logOut(bool delAutoLogin = false, bool reInit = true) override;
+	void saveLoginInfo() override;
+	void logInCleanUp() override;
 
 	///////////////////////////////////////////////////////////////////////////////
 	// Misc
 	///////////////////////////////////////////////////////////////////////////////
 
-	virtual bool isAdmin();
-	virtual bool isDelayLoading();
+	bool isAdmin() override;
+	bool isDelayLoading() override;
 
-	virtual void appNeedUpdate(uint32 appid = 0, uint32 appver = 0, bool bForced = false);
-	virtual void restartPipe();
+	void appNeedUpdate(uint32 appid = 0, uint32 appver = 0, bool bForced = false) override;
+	void restartPipe() override;
 	void forceUpdatePoll() override;
 	void forceQATestingUpdate() override;
 	void setQATesting(bool bEnable = true) override;
@@ -148,62 +171,62 @@ public:
 	// Getters
 	///////////////////////////////////////////////////////////////////////////////
 
-	virtual uint32 getUserId();
-	virtual const char* getAvatar();
-	virtual const char* getProfileUrl();
-	virtual const char* getProfileEditUrl();
-	virtual const char* getUserNameId();
-	virtual const char* getUserName();
+	uint32 getUserId() override;
+	const char* getAvatar() override;
+	const char* getProfileUrl() override;
+	const char* getProfileEditUrl() override;
+	const char* getUserNameId() override;
+	const char* getUserName() override;
 
-	virtual uint32 getPmCount();
-	virtual uint32 getUpCount();
-	virtual uint32 getCartCount();
-	virtual uint32 getThreadCount();
+	uint32 getPmCount() override;
+	uint32 getUpCount() override;
+	uint32 getCartCount() override;
+	uint32 getThreadCount() override;
 
-	virtual const char* getCVarValue(const char* cvarName);
-	virtual ::Thread::ThreadPool* getThreadPool();
-	virtual IPCServiceMain* getServiceMain();
-	virtual WebCore::WebCoreI* getWebCore();
-	virtual UserCore::UserThreadManagerI* getThreadManager();
-	virtual UserCore::UploadManagerI* getUploadManager();
-	virtual UserCore::ItemManagerI* getItemManager();
-	virtual UserCore::ToolManagerI* getToolManager();
-	virtual UserCore::GameExplorerManager* getGameExplorerManager();
-	virtual UserCore::CDKeyManagerI* getCDKeyManager();
-	virtual UserCore::CIPManagerI* getCIPManager();
+	const char* getCVarValue(const char* cvarName) override;
+	::Thread::ThreadPool* getThreadPool() override;
+	IPC::ServiceMainI* getServiceMain() override;
+	WebCore::WebCoreI* getWebCore() override;
+	UserCore::UserThreadManagerI* getThreadManager() override;
+	UserCore::UploadManagerI* getUploadManager() override;
+	UserCore::ItemManagerI* getItemManager() override;
+	UserCore::ToolManagerI* getToolManager() override;
+	UserCore::GameExplorerManagerI* getGameExplorerManager() override;
+	UserCore::CDKeyManagerI* getCDKeyManager() override;
+	UserCore::CIPManagerI* getCIPManager() override;
 
 	///////////////////////////////////////////////////////////////////////////////
 	// Events
 	///////////////////////////////////////////////////////////////////////////////
 
-	virtual Event<uint32>* getItemsAddedEvent();
-	virtual Event<UserCore::Misc::UpdateInfo>* getAppUpdateEvent();
-	virtual Event<UserCore::Misc::UpdateInfo>* getAppUpdateCompleteEvent();
-	virtual Event<uint32>* getAppUpdateProgEvent();
-	virtual Event<UserCore::Misc::CVar_s>* getNeedCvarEvent();
-	virtual EventC<gcString>* getNewAvatarEvent();
-	virtual Event<WCSpecialInfo>* getNeedWildCardEvent();
-	virtual Event<std::vector<UserCore::Misc::NewsItem*> >* getNewsUpdateEvent();
-	virtual Event<std::vector<UserCore::Misc::NewsItem*> >* getGiftUpdateEvent();
-	virtual Event<std::vector<UserCore::Item::ItemUpdateInfo*> >* getItemUpdateEvent();
-	virtual EventV* getUserUpdateEvent();
-	virtual EventV* getPipeDisconnectEvent();
-	virtual Event<std::tuple<gcOptional<bool>, gcOptional<bool>, gcOptional<bool>>>* getForcedUpdatePollEvent();
-	virtual EventV* getLoginItemsLoadedEvent();
-	virtual Event<std::pair<bool, char> >* getLowSpaceEvent();
+	Event<uint32>* getItemsAddedEvent() override;
+	Event<UserCore::Misc::UpdateInfo>* getAppUpdateEvent() override;
+	Event<UserCore::Misc::UpdateInfo>* getAppUpdateCompleteEvent() override;
+	Event<uint32>* getAppUpdateProgEvent() override;
+	Event<UserCore::Misc::CVar_s>* getNeedCvarEvent() override;
+	EventC<gcString>* getNewAvatarEvent() override;
+	Event<WCSpecialInfo>* getNeedWildCardEvent() override;
+	Event<std::vector<UserCore::Misc::NewsItem*> >* getNewsUpdateEvent() override;
+	Event<std::vector<UserCore::Misc::NewsItem*> >* getGiftUpdateEvent() override;
+	Event<std::vector<UserCore::Item::ItemUpdateInfo*> >* getItemUpdateEvent() override;
+	EventV* getUserUpdateEvent() override;
+	EventV* getPipeDisconnectEvent() override;
+	Event<std::tuple<gcOptional<bool>, gcOptional<bool>, gcOptional<bool>>>* getForcedUpdatePollEvent() override;
+	EventV* getLoginItemsLoadedEvent() override;
+	Event<std::pair<bool, char> >* getLowSpaceEvent() override;
 
-	virtual void setCounts(uint32 msgs, uint32 updates, uint32 threads, uint32 cart);
+	void setCounts(uint32 msgs, uint32 updates, uint32 threads, uint32 cart) override;
 #ifdef WIN32
-	virtual void setMainWindowHandle(HWND handle);
+	void setMainWindowHandle(HWND handle) override;
 #endif
 
-	virtual void updateUninstallInfo();
-	virtual void updateUninstallInfo(DesuraId id, uint64 installSize);
-	virtual void removeUninstallInfo(DesuraId id);
-	virtual void updateRegKey(const char* key, const char* value);
-	virtual void updateBinaryRegKey(const char* key, const char* value, size_t size);
+	void updateUninstallInfo() override;
+	void updateUninstallInfo(DesuraId id, uint64 installSize) override;
+	void removeUninstallInfo(DesuraId id) override;
+	void updateRegKey(const char* key, const char* value) override;
+	void updateBinaryRegKey(const char* key, const char* value, size_t size) override;
 
-	virtual void runInstallScript(const char* file, const char* installPath, const char* function);
+	void runInstallScript(const char* file, const char* installPath, const char* function) override;
 
 	void setAvatarUrl(const char* szAvatarUrl) override;
 
@@ -233,14 +256,14 @@ public:
 	//! @param itemInfo Item for which the image belongs
 	//! @param image Which image to download
 	//!
-	void downloadImage(UserCore::Item::ItemInfo* itemInfo, uint8 image);
+	void downloadImage(UserCore::Item::ItemInfo* itemInfo, uint8 image) override;
 
 	//! Removes or adds an item to a desura account
 	//!
 	//! @param item Item for which to act appon
 	//! @param action Add or remove it
 	//!
-	void changeAccount(DesuraId id, uint8 action);
+	void changeAccount(DesuraId id, uint8 action) override;
 
 	//! Checks for saved login info and returns it if found
 	//!
@@ -250,7 +273,7 @@ public:
 	static void getLoginInfo(char** userhash, char** passhash);
 
 #ifdef WIN32
-	HWND getMainWindowHandle();
+	HWND getMainWindowHandle() override;
 #endif
 
 	//! Start the pipe to the desura service
@@ -437,7 +460,7 @@ inline ::Thread::ThreadPool* User::getThreadPool()
 	return m_pThreadPool;
 }
 
-inline IPCServiceMain* User::getServiceMain()
+inline IPC::ServiceMainI* User::getServiceMain()
 {
 	if (!m_pPipeClient)
 		return nullptr;
@@ -470,7 +493,7 @@ inline UserCore::ToolManagerI* User::getToolManager()
 	return m_pToolManager;
 }
 
-inline UserCore::GameExplorerManager* User::getGameExplorerManager()
+inline UserCore::GameExplorerManagerI* User::getGameExplorerManager()
 {
 	return m_pGameExplorerManager;
 }

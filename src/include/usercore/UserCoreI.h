@@ -29,6 +29,10 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#ifdef LINK_WITH_GMOCK
+#include <gmock/gmock.h>
+#endif
+
 #include "usercore/NewsItem.h"
 #include "usercore/ItemHandleI.h"
 #include "usercore/ItemInfoI.h"
@@ -36,8 +40,6 @@ $/LicenseInfo$
 #include "util/gcOptional.h"
 
 class WCSpecialInfo;
-class IPCServiceMain;
-
 
 #define USERCORE					"USERCORE_INTERFACE_001"
 #define USERCORE_VER				"USERCORE_VERSION"
@@ -58,18 +60,25 @@ namespace WebCore
 	class WebCoreI;
 }
 
+namespace IPC
+{
+	class ServiceMainI;
+}
+
 namespace UserCore
 {
+
 
 extern "C"
 {
 	CEXPORT void* FactoryBuilderUC(const char* name);
 }
 
+class UserExI;
 class UserThreadManagerI;
 class UploadManagerI;
 class ToolManagerI;
-class GameExplorerManager;
+class GameExplorerManagerI;
 class CDKeyManagerI;
 class CIPManagerI;
 
@@ -102,6 +111,12 @@ namespace Misc
 	};
 }
 
+
+enum class PlatformType
+{
+	Item,
+	Tool,
+};
 
 
 class UserI
@@ -272,7 +287,7 @@ public:
 	//!
 	//! @return ServiceMain
 	//!
-	virtual IPCServiceMain* getServiceMain()=0;
+	virtual IPC::ServiceMainI* getServiceMain()=0;
 
 	//! Gets the webcore handle
 	//!
@@ -308,7 +323,7 @@ public:
 	//!
 	//! @return Game Explorer manager
 	//!
-	virtual UserCore::GameExplorerManager* getGameExplorerManager()=0;
+	virtual GameExplorerManagerI* getGameExplorerManager()=0;
 
 	//! Gets the cd key manager
 	//!
@@ -470,7 +485,91 @@ public:
 
 	//! Set the avatar url
 	virtual void setAvatarUrl(const char* szAvatarUrl)=0;
+
+	//! Is this platform active
+	//!
+	virtual bool platformFilter(const XML::gcXMLElement &platform, PlatformType type)=0;
+
+	//Get internal user object (for user core)
+	//!
+	//!
+	virtual UserExI* getUserEx()=0;
 };
+
+
+#ifdef LINK_WITH_GMOCK
+	class UserMock : public UserI
+	{
+	public:
+		MOCK_METHOD1(init, void(const char* appDataPath));
+		MOCK_METHOD0(getAppDataPath, const char*());
+		MOCK_METHOD0(getMcfCachePath, const char*());
+		MOCK_METHOD0(lockDelete, void());
+		MOCK_METHOD0(unlockDelete, void());
+		MOCK_METHOD2(logIn, void(const char* user, const char* password));
+		MOCK_METHOD2(logOut, void(bool delAutoLogin, bool reInit));
+		MOCK_METHOD0(saveLoginInfo, void());
+		MOCK_METHOD0(logInCleanUp, void());
+		MOCK_METHOD0(isAdmin, bool());
+		MOCK_METHOD0(isDelayLoading, bool());
+		MOCK_METHOD3(appNeedUpdate, void(uint32 appid, uint32 appver, bool bForced));
+		MOCK_METHOD0(restartPipe, void());
+		MOCK_METHOD0(forceUpdatePoll, void());
+		MOCK_METHOD0(forceQATestingUpdate, void());
+		MOCK_METHOD1(setQATesting, void(bool bEnable));
+		MOCK_METHOD0(getUserId, uint32());
+		MOCK_METHOD0(getAvatar, const char*());
+		MOCK_METHOD0(getProfileUrl, const char*());
+		MOCK_METHOD0(getProfileEditUrl, const char*());
+		MOCK_METHOD0(getUserNameId, const char*());
+		MOCK_METHOD0(getUserName, const char*());
+		MOCK_METHOD0(getPmCount, uint32());
+		MOCK_METHOD0(getUpCount, uint32());
+		MOCK_METHOD0(getCartCount, uint32());
+		MOCK_METHOD0(getThreadCount, uint32());
+		MOCK_METHOD1(getCVarValue, const char*(const char* cvarName));
+		MOCK_METHOD0(getThreadPool, ::Thread::ThreadPool*());
+		MOCK_METHOD0(getServiceMain, IPC::ServiceMainI*());
+		MOCK_METHOD0(getWebCore, WebCore::WebCoreI*());
+		MOCK_METHOD0(getThreadManager, UserCore::UserThreadManagerI*());
+		MOCK_METHOD0(getUploadManager, UserCore::UploadManagerI*());
+		MOCK_METHOD0(getItemManager, UserCore::ItemManagerI*());
+		MOCK_METHOD0(getToolManager, UserCore::ToolManagerI*());
+		MOCK_METHOD0(getGameExplorerManager, GameExplorerManagerI*());
+		MOCK_METHOD0(getCDKeyManager, UserCore::CDKeyManagerI*());
+		MOCK_METHOD0(getCIPManager, UserCore::CIPManagerI*());
+		MOCK_METHOD0(getItemsAddedEvent, Event<uint32>*());
+		MOCK_METHOD0(getAppUpdateEvent, Event<UserCore::Misc::UpdateInfo>*());
+		MOCK_METHOD0(getAppUpdateCompleteEvent, Event<UserCore::Misc::UpdateInfo>*());
+		MOCK_METHOD0(getAppUpdateProgEvent, Event<uint32>*());
+		MOCK_METHOD0(getNeedCvarEvent, Event<UserCore::Misc::CVar_s>*());
+		MOCK_METHOD0(getNewAvatarEvent, EventC<gcString>*());
+		MOCK_METHOD0(getNeedWildCardEvent, Event<WCSpecialInfo>*());
+		MOCK_METHOD0(getNewsUpdateEvent, Event<std::vector<UserCore::Misc::NewsItem*> >*());
+		MOCK_METHOD0(getGiftUpdateEvent, Event<std::vector<UserCore::Misc::NewsItem*> >*());
+		MOCK_METHOD0(getItemUpdateEvent, Event<std::vector<UserCore::Item::ItemUpdateInfo*> >*());
+		MOCK_METHOD0(getUserUpdateEvent, EventV*());
+		MOCK_METHOD0(getPipeDisconnectEvent, EventV*());
+		MOCK_METHOD0(getForcedUpdatePollEvent, Event<std::tuple<gcOptional<bool>, gcOptional<bool>, gcOptional<bool>>>*());
+		MOCK_METHOD0(getLoginItemsLoadedEvent, EventV*());
+		MOCK_METHOD0(getLowSpaceEvent, Event<std::pair<bool, char> >*());
+		MOCK_METHOD4(setCounts, void(uint32 msgs, uint32 updates, uint32 threads, uint32 cart));
+	#ifdef WIN32
+		MOCK_METHOD1(setMainWindowHandle, void(HWND handle));
+	#endif
+		MOCK_METHOD0(updateUninstallInfo, void());
+		MOCK_METHOD2(updateUninstallInfo, void(DesuraId id, uint64 installSize));
+		MOCK_METHOD1(removeUninstallInfo, void(DesuraId id));
+		MOCK_METHOD2(updateRegKey, void(const char* key, const char* value));
+		MOCK_METHOD3(updateBinaryRegKey, void(const char* key, const char* value, size_t size));
+		MOCK_METHOD3(runInstallScript, void(const char* file, const char* installPath, const char* function));
+		MOCK_METHOD2(logInTool, void(const char* user, const char* pass));
+		MOCK_METHOD2(init, void(const char* appDataPath, const char* szProviderUrl));
+		MOCK_METHOD1(setAvatarUrl, void(const char* szAvatarUrl));
+		MOCK_METHOD2(platformFilter, bool(const XML::gcXMLElement &, PlatformType));
+		MOCK_METHOD0(getUserEx, UserExI*());
+	};
+#endif
 
 
 }

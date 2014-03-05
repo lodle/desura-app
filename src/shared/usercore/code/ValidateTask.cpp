@@ -212,12 +212,12 @@ void ValidateTask::validateHeader(MCFBuild &build, MCFBranch &branch)
 	branch = m_hMCFile->getHeader()->getBranch();
 
 	if (getMcfBranch() != branch)
-		throw gcException(ERR_BADID, "Branch from mcf is different to requrested branch");
+		throw gcException(ERR_BADID, "Branch from mcf is different to requested branch");
 
 	this->m_uiMcfBuild = build;
 
 	if (m_bUpdating && build <=  pItem->getInstalledBuild())
-		throw gcException(ERR_NOUPDATE, "The installed version is the same as the newest version. No Update avaliable.");
+		throw gcException(ERR_NOUPDATE, "The installed version is the same as the newest version. No Update available.");
 
 	if (!pItem->setInstalledMcf(branch, build))
 		throw gcException(ERR_BADID, "Failed to set branch id.");
