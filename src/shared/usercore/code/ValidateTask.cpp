@@ -52,8 +52,8 @@ ValidateTask::~ValidateTask()
 
 void ValidateTask::doRun()
 {
-	UserCore::MCFManager *mm = UserCore::GetMCFManager();
-	UserCore::Item::ItemInfo* pItem = getItemInfo();
+	UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
+	auto pItem = getItemInfo();
 
 	if (!pItem)
 		throw gcException(ERR_BADID);
@@ -179,10 +179,10 @@ void ValidateTask::setAction(ACTION action)
 
 void ValidateTask::updateStatusFlags()
 {
-	UserCore::Item::ItemInfo* pItem = getItemInfo();
+	auto pItem = getItemInfo();
 	uint32 flags = UserCore::Item::ItemInfoI::STATUS_DELETED|UserCore::Item::ItemInfoI::STATUS_LINK|UserCore::Item::ItemInfoI::STATUS_VERIFING|UserCore::Item::ItemInfoI::STATUS_PAUSED|UserCore::Item::ItemInfoI::STATUS_PRELOADED;
 
-	pItem->setPercent(0);
+	pItem->getInternal()->setPercent(0);
 	pItem->delSFlag(flags);
 
 	uint32 num = 0;
@@ -207,7 +207,7 @@ void ValidateTask::updateStatusFlags()
 
 void ValidateTask::validateHeader(MCFBuild &build, MCFBranch &branch)
 {
-	UserCore::Item::ItemInfo* pItem = getItemInfo();
+	auto pItem = getItemInfo();
 	build = m_hMCFile->getHeader()->getBuild();
 	branch = m_hMCFile->getHeader()->getBranch();
 
@@ -311,7 +311,7 @@ void ValidateTask::copyLocalMcfs(MCFBranch branch, MCFBuild build)
 	if (isStopped())
 		return;
 
-	UserCore::MCFManager *mm = UserCore::GetMCFManager();
+	UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
 
 	std::vector<McfPathData> vOldMcfs;
 	mm->getAllMcfPaths(getItemId(), vOldMcfs);
@@ -439,9 +439,9 @@ void ValidateTask::onComplete(gcString &savePath)
 	onCompleteStrEvent(savePath);
 
 	if (m_bUpdating && m_LastInsBuild != 0)
-		getItemHandle()->goToStageUninstallUpdate(savePath.c_str(), m_LastInsBuild);
+		getItemHandle()->getInternal()->goToStageUninstallUpdate(savePath.c_str(), m_LastInsBuild);
 	else
-		getItemHandle()->goToStageDownload(savePath.c_str());
+		getItemHandle()->getInternal()->goToStageDownload(savePath.c_str());
 }
 
 
@@ -543,16 +543,16 @@ void ValidateTask::onProgress(MCFCore::Misc::ProgressInfo& p)
 	}
 
 	onMcfProgressEvent(p);
-	getItemInfo()->setPercent(p.percent);
+	getItemInfo()->getInternal()->setPercent(p.percent);
 }
 
 void ValidateTask::onError(gcException &e)
 {
 	Warning(gcString("Error in MCF validate: {0}\n", e));
 	m_bInError=true;
-	getItemHandle()->completeStage(true);
+	getItemHandle()->getInternal()->completeStage(true);
 
-	UserCore::Item::ItemInfo* pItem = getItemInfo();
+	auto pItem = getItemInfo();
 
 	if (pItem)
 	{
@@ -581,7 +581,7 @@ void ValidateTask::onStop()
 void ValidateTask::cancel()
 {
 	onStop();
-	getItemHandle()->resetStage(true);
+	getItemHandle()->getInternal()->resetStage(true);
 }
 
 void ValidateTask::setCurrentMcf(McfHandle* pMcfHandle)

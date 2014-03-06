@@ -43,24 +43,29 @@ class IPCUninstallBranch;
 
 namespace IPC
 {
-
-#ifdef DESURA_CLIENT
 	class ServiceMainI
 	{
 	public:
 		virtual void updateRegKey(const char* key, const char* value)=0;
+
+#ifdef DESURA_CLIENT
 		virtual void updateBinaryRegKey(const char* key, const char* value, size_t size)=0;
+#else
+		virtual void updateBinaryRegKeyBlob(const char* key, IPC::PBlob blob)=0;
+#endif
 
 		virtual void updateShortCuts()=0;
 		virtual void runInstallScript(const char* file, const char* installPath, const char* function)=0;
 
 		virtual void fixFolderPermissions(const char* dir)=0;
 
+#ifdef DESURA_CLIENT
 		virtual IPCUpdateApp* newUpdateApp()=0;
 		virtual IPCUninstallMcf* newUninstallMcf()=0;
 		virtual IPCInstallMcf* newInstallMcf()=0;
 		virtual IPCComplexLaunch* newComplexLaunch()=0;
 		virtual IPCUninstallBranch* newUninstallBranch()=0;
+#endif
 
 #ifdef WIN32
 		virtual void removeUninstallRegKey(uint64 id)=0;
@@ -75,25 +80,30 @@ namespace IPC
 		virtual ~ServiceMainI(){}
 	};
 
-
 #ifdef LINK_WITH_GMOCK
 	class ServiceMainMock : public ServiceMainI
 	{
 	public:
 		MOCK_METHOD2(updateRegKey, void(const char*, const char*));
+
+#ifdef DESURA_CLIENT
 		MOCK_METHOD3(updateBinaryRegKey, void(const char*, const char*, size_t));
+#else
+		MOCK_METHOD2(updateBinaryRegKeyBlob, void(const char*, IPC::PBlob));
+#endif
 
 		MOCK_METHOD0(updateShortCuts, void());
 		MOCK_METHOD3(runInstallScript, void(const char*, const char*, const char*));
 
 		MOCK_METHOD1(fixFolderPermissions, void(const char*));
 
+#ifdef DESURA_CLIENT
 		MOCK_METHOD0(newUpdateApp, IPCUpdateApp*());
 		MOCK_METHOD0(newUninstallMcf, IPCUninstallMcf*());
 		MOCK_METHOD0(newInstallMcf, IPCInstallMcf*());
 		MOCK_METHOD0(newComplexLaunch, IPCComplexLaunch*());
 		MOCK_METHOD0(newUninstallBranch, IPCUninstallBranch*());
-
+#endif
 
 #ifdef WIN32
 		MOCK_METHOD1(removeUninstallRegKey, void(uint64));
@@ -103,13 +113,6 @@ namespace IPC
 		MOCK_METHOD2(addItemGameToGameExplorer, void(const char*, const char*));
 		MOCK_METHOD2(removeGameFromGameExplorer, void(const char*, bool));
 #endif
-	};
-#endif
-
-
-#else
-	class ServiceMainI
-	{
 	};
 #endif
 }

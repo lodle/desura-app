@@ -63,7 +63,7 @@ DownloadToolTask::~DownloadToolTask()
 void DownloadToolTask::doRun()
 {
 	uint32 per = 0;
-	getItemInfo()->setPercent(per);
+	getItemInfo()->getInternal()->setPercent(per);
 
 	if (m_ToolTTID == UINT_MAX)
 		validateTools();
@@ -165,7 +165,7 @@ void DownloadToolTask::onDLProgress(UserCore::Misc::ToolProgress &p)
 	m.percent = p.percent;
 
 	onMcfProgressEvent(m);
-	getItemInfo()->setPercent(p.percent);
+	getItemInfo()->getInternal()->setPercent(p.percent);
 }
 
 void DownloadToolTask::onDLError(gcException &e)
@@ -198,7 +198,7 @@ void DownloadToolTask::onComplete()
 
 	if (notComplete)
 	{
-		getItemHandle()->completeStage(true);
+		getItemHandle()->getInternal()->completeStage(true);
 		return;
 	}
 
@@ -207,14 +207,14 @@ void DownloadToolTask::onComplete()
 
 	if (m_bInstallAfter)
 	{
-		getItemHandle()->goToStageInstallTools(m_bLaunch);
+		getItemHandle()->getInternal()->goToStageInstallTools(m_bLaunch);
 	}
 	else
 	{
 		if (HasAllFlags(getItemInfo()->getStatus(), UserCore::Item::ItemInfoI::STATUS_INSTALLCOMPLEX))
-			getItemHandle()->goToStageInstallComplex(getMcfBranch(), getMcfBuild());
+			getItemHandle()->getInternal()->goToStageInstallComplex(getMcfBranch(), getMcfBuild());
 		else
-			getItemHandle()->goToStageInstall(m_szDownloadPath.c_str(), getMcfBranch());
+			getItemHandle()->getInternal()->goToStageInstall(m_szDownloadPath.c_str(), getMcfBranch());
 	}
 }
 

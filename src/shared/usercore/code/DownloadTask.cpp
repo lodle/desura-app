@@ -60,7 +60,7 @@ DownloadTask::~DownloadTask()
 
 void DownloadTask::doRun()
 {
-	UserCore::Item::ItemInfo* pItem = getItemInfo();
+	auto pItem = getItemInfo();
 
 	if (!pItem)
 		throw gcException(ERR_BADID);
@@ -150,7 +150,7 @@ void DownloadTask::onComplete(gcString &savePath)
 
 	if (hasError)
 	{
-		getItemHandle()->completeStage(true);
+		getItemHandle()->getInternal()->completeStage(true);
 		return;
 	}
 
@@ -160,25 +160,25 @@ void DownloadTask::onComplete(gcString &savePath)
 	{
 		getItemInfo()->addSFlag(UserCore::Item::ItemInfoI::STATUS_PRELOADED);
 		getItemInfo()->delSFlag(UserCore::Item::ItemInfoI::STATUS_DOWNLOADING);
-		getItemHandle()->completeStage(true);
+		getItemHandle()->getInternal()->completeStage(true);
 	}
 	else if (m_ToolTTID != UINT_MAX)
 	{
 		UserCore::Misc::ToolTransaction* tt = new UserCore::Misc::ToolTransaction();
 		getUserCore()->getToolManager()->updateTransaction(m_ToolTTID, tt);
 
-		getItemHandle()->goToStageDownloadTools(m_ToolTTID, savePath.c_str(), getMcfBranch(), getMcfBuild());
+		getItemHandle()->getInternal()->goToStageDownloadTools(m_ToolTTID, savePath.c_str(), getMcfBranch(), getMcfBuild());
 	}
 	else
 	{
 		//mirrored in download tool item task. Make sure to update it as well
 		if (HasAllFlags(getItemInfo()->getStatus(), UserCore::Item::ItemInfoI::STATUS_INSTALLCOMPLEX))
 		{
-			getItemHandle()->goToStageInstallComplex(getMcfBranch(), getMcfBuild());
+			getItemHandle()->getInternal()->goToStageInstallComplex(getMcfBranch(), getMcfBuild());
 		}
 		else
 		{
-			getItemHandle()->goToStageInstall(savePath.c_str(), getMcfBranch());
+			getItemHandle()->getInternal()->goToStageInstall(savePath.c_str(), getMcfBranch());
 		}
 	}
 }
@@ -216,11 +216,11 @@ void DownloadTask::onProgress(MCFCore::Misc::ProgressInfo& p)
 	if (p.flag & MCFCore::Misc::ProgressInfo::FLAG_INITFINISHED)
 	{
 		m_bInitFinished = true;
-		getItemHandle()->setPausable(true);
+		getItemHandle()->getInternal()->setPausable(true);
 	}
 	else if (p.flag & MCFCore::Misc::ProgressInfo::FLAG_FINALIZING)
 	{
-		getItemHandle()->setPausable(false);
+		getItemHandle()->getInternal()->setPausable(false);
 	}
 
 	if (getItemInfo() && m_bInitFinished)
@@ -228,11 +228,11 @@ void DownloadTask::onProgress(MCFCore::Misc::ProgressInfo& p)
 		if (getItemInfo()->isUpdating())
 		{
 			//for updating downloading is the first 50%
-			getItemInfo()->setPercent(p.percent/2);
+			getItemInfo()->getInternal()->setPercent(p.percent/2);
 		}
 		else
 		{
-			getItemInfo()->setPercent(p.percent);
+			getItemInfo()->getInternal()->setPercent(p.percent);
 		}
 	}
 }
@@ -271,24 +271,24 @@ void DownloadTask::onNewProvider(MCFCore::Misc::DP_s& dp)
 void DownloadTask::onError(gcException &e)
 {
 	Warning(gcString("Error in MCF download: {0}\n", e));
-	getItemHandle()->setPausable(false);
+	getItemHandle()->getInternal()->setPausable(false);
 
 	if (!getItemHandle()->shouldPauseOnError())
 	{	
 		m_bInError = true;
-		getItemHandle()->resetStage(true);
+		getItemHandle()->getInternal()->resetStage(true);
 	}
 	else
 	{
-		getItemHandle()->setPaused(true, true);
+		getItemHandle()->getInternal()->setPaused(true, true);
 	}
 }
 
 void DownloadTask::cancel()
 {
-	getItemHandle()->setPausable(false);
+	getItemHandle()->getInternal()->setPausable(false);
 	onStop();
-	getItemHandle()->resetStage(true);
+	getItemHandle()->getInternal()->resetStage(true);
 }
 
 

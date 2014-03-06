@@ -113,27 +113,27 @@ void BaseItemTask::cancel()
 
 }
 
-UserCore::Item::ItemHandle* BaseItemTask::getItemHandle()
+UserCore::Item::ItemHandleI* BaseItemTask::getItemHandle()
 {
-	return dynamic_cast<UserCore::Item::ItemHandle*>(m_pHandle);
+	return m_pHandle;
 }
 
-UserCore::Item::ItemInfo* BaseItemTask::getItemInfo()
+UserCore::Item::ItemInfoI* BaseItemTask::getItemInfo()
 {
 	if (!m_pHandle)
 		return nullptr;
 
-	return dynamic_cast<UserCore::Item::ItemInfo*>(m_pHandle->getItemInfo());
+	return m_pHandle->getItemInfo();
 }
 
-UserCore::Item::ItemInfo* BaseItemTask::getParentItemInfo()
+UserCore::Item::ItemInfoI* BaseItemTask::getParentItemInfo()
 {
-	UserCore::Item::ItemInfo* item = getItemInfo();
+	UserCore::Item::ItemInfoI* item = getItemInfo();
 
 	if (!m_pUserCore || !item)
 		return nullptr;
 
-	return dynamic_cast<UserCore::Item::ItemInfo*>(m_pUserCore->getItemManager()->findItemInfo(item->getParentId()));
+	return m_pUserCore->getItemManager()->findItemInfo(item->getParentId());
 }
 
 DesuraId BaseItemTask::getItemId()

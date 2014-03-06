@@ -329,8 +329,14 @@ namespace WebCore
 			setCookies(&ccb);
 		}
 	};
+}
+
 
 #ifdef LINK_WITH_GMOCK
+#include "XMLMacros.h"
+
+namespace WebCore
+{
 	class WebCoreMock : public WebCoreI
 	{
 	public:
@@ -370,9 +376,8 @@ namespace WebCore
 		MOCK_METHOD4(getDownloadProviders, void(DesuraId id, XML::gcXMLDocument &xmlDocument, MCFBranch mcfBranch, MCFBuild mcfBuild));
 		MOCK_METHOD1(setCookies, void(CookieCallbackI *pCallback));
 	};
+}
 #endif
 
-
-}
 
 #endif //DESURA_WEBCOREI_H

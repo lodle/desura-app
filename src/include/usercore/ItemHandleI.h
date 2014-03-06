@@ -43,6 +43,7 @@ namespace UserCore
 	namespace Item
 	{
 		class ItemHandleI;
+		class ItemHandleInternalI;
 
 		class ItemTaskGroupI
 		{
@@ -143,6 +144,8 @@ namespace UserCore
 			//! Creates the launch scripts
 			virtual void installLaunchScripts()=0;
 		#endif
+
+			virtual ItemHandleInternalI* getInternal()=0;
 		};
 	}
 }
@@ -189,6 +192,7 @@ namespace UserCore
 		#ifdef NIX
 			MOCK_METHOD0(installLaunchScripts, void());
 		#endif
+			MOCK_METHOD0(getInternal, ItemHandleInternalI*());
 		};
 	}
 }

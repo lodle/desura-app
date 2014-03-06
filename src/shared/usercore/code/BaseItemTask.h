@@ -81,13 +81,13 @@ namespace UserCore
 			const char* getTaskName();
 			UserCore::Item::ITEM_STAGE getTaskType();
 
-			UserCore::Item::ItemHandle* getItemHandle();
+			UserCore::Item::ItemHandleI* getItemHandle();
 
 		protected:
 			virtual void doRun()=0;
 
-			UserCore::Item::ItemInfo* getItemInfo();
-			UserCore::Item::ItemInfo* getParentItemInfo();
+			UserCore::Item::ItemInfoI* getItemInfo();
+			UserCore::Item::ItemInfoI* getParentItemInfo();
 
 			DesuraId getItemId();
 

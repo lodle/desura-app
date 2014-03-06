@@ -6,7 +6,7 @@ ExternalProject_Add(
   gmock
   URL "${GMOCK_URL}"
   URL_MD5 ${GMOCK_MD5}
-  CMAKE_ARGS -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_FLAGS=${ADD_CXX_FLAGS} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -Dgmock_force_shared_crt:BOOL=ON
+  CMAKE_ARGS -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_FLAGS=${ADD_CXX_FLAGS} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -Dgmock_force_shared_crt:BOOL=ON -Dgtest_force_shared_crt=ON
   BUILD_IN_SOURCE 1
   INSTALL_COMMAND ""
 )
@@ -17,6 +17,7 @@ ExternalProject_Get_Property(
 )
 
 set(GMOCK_INCLUDE_DIRS "${source_dir}/include")
+set(GTEST_INCLUDE_DIRS "${source_dir}/gtest/include")
 
 if(WIN32)
   if(DEBUG)

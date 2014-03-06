@@ -55,11 +55,20 @@ namespace UserCore
 		class BranchItemInfoI
 		{
 		public:
-			virtual DesuraId getId()=0;
-			virtual uint32 getStatus()=0;
+			 virtual DesuraId getId()=0;
+			 virtual uint32 getStatus()=0;
 		};
 
-		class ItemInfo : public ItemInfoI, public BranchItemInfoI
+		class ItemInfoInternalI
+		{
+		public:
+			virtual void setPercent(uint8 percent)=0;
+			virtual MCFBranch getBestBranch(MCFBranch branch)=0;
+			virtual void resetInstalledMcf()=0;
+			virtual void overideInstalledBuild(MCFBuild build)=0;
+		};
+
+		class ItemInfo : public ItemInfoI, public BranchItemInfoI, public ItemInfoInternalI
 		{
 		public:
 			//! Constructor
@@ -77,92 +86,91 @@ namespace UserCore
 			~ItemInfo();
 
 			//inherited methods
-			virtual void updated();
-			virtual void addToAccount();
-			virtual void removeFromAccount();
+			 void updated() override;
+			 void addToAccount() override;
+			 void removeFromAccount() override;
 
-			virtual DesuraId getParentId();
-			virtual DesuraId getId();
-			virtual DesuraId getInstalledModId(MCFBranch branch = MCFBranch());
+			 DesuraId getParentId() override;
+			 DesuraId getId() override;
+			 DesuraId getInstalledModId(MCFBranch branch = MCFBranch()) override;
 
-			virtual uint32 getChangedFlags();
-			virtual uint32 getStatus();
+			 uint32 getChangedFlags() override;
+			 uint32 getStatus() override;
 
-			virtual uint8 getPercent();
-			virtual uint8 getPermissions();
-			virtual uint8 getOptions();
+			 uint8 getPercent() override;
+			 uint8 getPermissions() override;
+			 uint8 getOptions() override;
 
-			virtual bool isLaunchable();
-			virtual bool isUpdating();
-			virtual bool isInstalled();
-			virtual bool isDownloadable();
-			virtual bool isComplex();
-			virtual bool isParentToComplex();
-			virtual bool isDeleted();
-			virtual bool isFirstLaunch();
+			 bool isLaunchable() override;
+			 bool isUpdating() override;
+			 bool isInstalled() override;
+			 bool isDownloadable() override;
+			 bool isComplex() override;
+			 bool isParentToComplex() override;
+			 bool isFirstLaunch() override;
 
-			virtual bool hasAcceptedEula();
-			virtual bool compare(const char* filter);
+			 bool hasAcceptedEula() override;
+			 bool compare(const char* filter) override;
 
-			virtual void addSFlag(uint32 status);
-			virtual void addPFlag(uint8 permission);
-			virtual void addOFlag(uint8 option);
+			 void addSFlag(uint32 status) override;
+			 void addPFlag(uint8 permission) override;
+			 void addOFlag(uint8 option) override;
 
-			virtual void delSFlag(uint32 status);
-			virtual void delPFlag(uint8 permission);
-			virtual void delOFlag(uint8 option);
+			 void delSFlag(uint32 status) override;
+			 void delPFlag(uint8 permission) override;
+			 void delOFlag(uint8 option) override;
 
-			virtual const char* getRating();
-			virtual const char* getDev();
-			virtual const char* getName();
-			virtual const char* getShortName();
-			virtual const char* getPath(MCFBranch branch = MCFBranch());
-			virtual const char* getInsPrimary(MCFBranch branch = MCFBranch());
-			virtual const char* getIcon();
-			virtual const char* getLogo();
-			virtual const char* getIconUrl();
-			virtual const char* getLogoUrl();
-			virtual const char* getDesc();
-			virtual const char* getTheme();
-			virtual const char* getGenre();
-			virtual const char* getProfile();
-			virtual const char* getDevProfile();
+			 const char* getRating() override;
+			 const char* getDev() override;
+			 const char* getName() override;
+			 const char* getShortName() override;
+			 const char* getPath(MCFBranch branch = MCFBranch()) override;
+			 const char* getInsPrimary(MCFBranch branch = MCFBranch()) override;
+			 const char* getIcon() override;
+			 const char* getLogo() override;
+			 const char* getIconUrl() override;
+			 const char* getLogoUrl() override;
+			 const char* getDesc() override;
+			 const char* getTheme() override;
+			 const char* getGenre() override;
+			 const char* getProfile() override;
+			 const char* getDevProfile() override;
 
-			virtual const char* getPublisher();
-			virtual const char* getPublisherProfile();
+			 const char* getPublisher() override;
+			 const char* getPublisherProfile() override;
 
-			virtual const char* getEulaUrl();
-			virtual const char* getInstallScriptPath();
+			 const char* getEulaUrl() override;
+			 const char* getInstallScriptPath() override;
 
-			virtual Event<ItemInfoI::ItemInfo_s>* getInfoChangeEvent();
+			 Event<ItemInfoI::ItemInfo_s>* getInfoChangeEvent() override;
 
 
 			void overrideMcfBuild(MCFBuild build, MCFBranch branch = MCFBranch());
-			virtual uint64 getInstallSize(MCFBranch branch = MCFBranch());
-			virtual uint64 getDownloadSize(MCFBranch branch = MCFBranch());
-			virtual MCFBuild getLastInstalledBuild(MCFBranch branch = MCFBranch());
-			virtual MCFBuild getInstalledBuild(MCFBranch branch = MCFBranch());
-			virtual MCFBuild getNextUpdateBuild(MCFBranch branch = MCFBranch());
-			virtual MCFBranch getInstalledBranch();
-			virtual MCFBranch getLastInstalledBranch();
-			virtual const char* getInstalledVersion(MCFBranch branch = MCFBranch());
+			 uint64 getInstallSize(MCFBranch branch = MCFBranch()) override;
+			 uint64 getDownloadSize(MCFBranch branch = MCFBranch()) override;
+			 MCFBuild getLastInstalledBuild(MCFBranch branch = MCFBranch()) override;
+			 MCFBuild getInstalledBuild(MCFBranch branch = MCFBranch()) override;
+			 MCFBuild getNextUpdateBuild(MCFBranch branch = MCFBranch()) override;
+			 MCFBranch getInstalledBranch() override;
+			 MCFBranch getLastInstalledBranch() override;
+			 const char* getInstalledVersion(MCFBranch branch = MCFBranch()) override;
 
 
-			virtual uint32 getBranchCount();
-			virtual BranchInfoI* getBranch(uint32 index);
-			virtual BranchInfoI* getCurrentBranch();
-			virtual BranchInfoI* getBranchById(uint32 id);
+			 uint32 getBranchCount() override;
+			 BranchInfoI* getBranch(uint32 index) override;
+			 BranchInfoI* getCurrentBranch() override;
+			 BranchInfoI* getBranchById(uint32 id) override;
 
-			virtual void acceptEula();
+			 void acceptEula() override;
 
 
-			virtual uint32 getExeCount(bool setActive, MCFBranch branch = MCFBranch());
-			virtual void getExeList(std::vector<UserCore::Item::Misc::ExeInfoI*> &list, MCFBranch branch = MCFBranch());
-			virtual UserCore::Item::Misc::ExeInfoI* getActiveExe(MCFBranch branch = MCFBranch());
-			virtual void setActiveExe(const char* name, MCFBranch branch = MCFBranch());
+			 uint32 getExeCount(bool setActive, MCFBranch branch = MCFBranch()) override;
+			 void getExeList(std::vector<UserCore::Item::Misc::ExeInfoI*> &list, MCFBranch branch = MCFBranch()) override;
+			 UserCore::Item::Misc::ExeInfoI* getActiveExe(MCFBranch branch = MCFBranch()) override;
+			 void setActiveExe(const char* name, MCFBranch branch = MCFBranch()) override;
 
-			virtual bool isFavorite();
-			virtual void setFavorite(bool fav);
+			 bool isFavorite() override;
+			 void setFavorite(bool fav) override;
 
 			//! Removes this item from the db
 			//!
@@ -223,7 +231,7 @@ namespace UserCore
 			//!
 			//! @param percent Item percent
 			//!
-			void setPercent(uint8 percent);
+			void setPercent(uint8 percent) override;
 
 
 			//! Sets the item name
@@ -264,9 +272,9 @@ namespace UserCore
 
 
 			bool setInstalledMcf(MCFBranch branch, MCFBuild build);
-			void overideInstalledBuild(MCFBuild build);
+			void overideInstalledBuild(MCFBuild build) override;
 
-			void resetInstalledMcf();
+			void resetInstalledMcf() override;
 			void overideFavorite(bool fav);
 
 			//! Sets the id of the installed mod for this item. Use item manager instead to set this!!!!!
@@ -293,12 +301,19 @@ namespace UserCore
 			//! If given an invalid branch it will select the best branch avaliable
 			//! If given a valid non global branch it will return the same branch
 			//!
-			MCFBranch getBestBranch(MCFBranch branch);
+			MCFBranch getBestBranch(MCFBranch branch) override;
 
 			//! Given a list of branches it will select the best avliable
 			//! If it cant work out best branch it will return 0
 			//!
 			MCFBranch selectBestBranch(const std::vector<BranchInfo*> &list);
+
+			ItemInfoInternalI* getInternal() override
+			{
+				return this;
+			}
+
+			bool isDeleted();
 
 		protected:
 			//! Event handler for item information changed. Triggers when this item information gets updated
@@ -449,11 +464,6 @@ namespace UserCore
 			return (isInstalled() && HasAllFlags(getStatus(), UserCore::Item::ItemInfoI::STATUS_UPDATEAVAL));
 		}
 
-		inline bool ItemInfo::isDeleted()
-		{
-			return HasAllFlags(getStatus(), UserCore::Item::ItemInfoI::STATUS_DELETED);
-		}
-
 		inline bool ItemInfo::isFirstLaunch()
 		{
 			return HasAllFlags(getStatus(), UserCore::Item::ItemInfoI::STATUS_LAUNCHED) == false;
@@ -597,6 +607,11 @@ namespace UserCore
 		inline bool ItemInfo::wasOnAccount()
 		{
 			return m_bWasOnAccount;
+		}
+
+		inline bool ItemInfo::isDeleted()
+		{
+			return HasAllFlags(getStatus(), UserCore::Item::ItemInfoI::STATUS_DELETED);
 		}
 	}
 }

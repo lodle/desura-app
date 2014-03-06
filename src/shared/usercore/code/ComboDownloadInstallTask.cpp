@@ -51,8 +51,8 @@ ComboDownloadInstallTask::~ComboDownloadInstallTask()
 
 void ComboDownloadInstallTask::doRun()
 {
-	UserCore::MCFManager *mm = UserCore::GetMCFManager();
-	UserCore::Item::ItemInfo* pItem = getItemInfo();
+	UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
+	UserCore::Item::ItemInfoI* pItem = getItemInfo();
 
 	if (!pItem)
 		throw gcException(ERR_BADID);
@@ -126,9 +126,9 @@ void ComboDownloadInstallTask::onError(gcException &e)
 {
 	Warning(gcString("Error in MCF Download And Install: {0}\n", e));
 	m_bInError=true;
-	getItemHandle()->completeStage(true);
+	getItemHandle()->getInternal()->completeStage(true);
 
-	UserCore::Item::ItemInfo* pItem = getItemInfo();
+	auto pItem = getItemInfo();
 
 	if (pItem)
 	{
@@ -152,7 +152,7 @@ void ComboDownloadInstallTask::onStop()
 void ComboDownloadInstallTask::cancel()
 {
 	onStop();
-	getItemHandle()->resetStage(true);
+	getItemHandle()->getInternal()->resetStage(true);
 }
 
 void ComboDownloadInstallTask::onProgress(MCFCore::Misc::ProgressInfo& p)
@@ -161,21 +161,21 @@ void ComboDownloadInstallTask::onProgress(MCFCore::Misc::ProgressInfo& p)
 	{
 		m_bDownloading = false;
 
-		UserCore::Item::ItemInfo* pItem = getItemInfo();
+		auto pItem = getItemInfo();
 		pItem->delSFlag(UserCore::Item::ItemInfoI::STATUS_DOWNLOADING);
 		pItem->addSFlag(UserCore::Item::ItemInfoI::STATUS_INSTALLING);
 	}
 
 	onMcfProgressEvent(p);
-	getItemInfo()->setPercent(p.percent);
+	getItemInfo()->getInternal()->setPercent(p.percent);
 }
 
 void ComboDownloadInstallTask::updateStatusFlags()
 {
-	UserCore::Item::ItemInfo* pItem = getItemInfo();
+	auto pItem = getItemInfo();
 	uint32 flags = UserCore::Item::ItemInfoI::STATUS_DELETED|UserCore::Item::ItemInfoI::STATUS_LINK|UserCore::Item::ItemInfoI::STATUS_VERIFING|UserCore::Item::ItemInfoI::STATUS_PAUSED|UserCore::Item::ItemInfoI::STATUS_PRELOADED;
 
-	pItem->setPercent(0);
+	pItem->getInternal()->setPercent(0);
 	pItem->delSFlag(flags);
 
 	uint32 num = 0;
@@ -200,7 +200,7 @@ void ComboDownloadInstallTask::updateStatusFlags()
 
 void ComboDownloadInstallTask::validateHeader(MCFBuild &build, MCFBranch &branch)
 {
-	UserCore::Item::ItemInfo* pItem = getItemInfo();
+	auto pItem = getItemInfo();
 	build = m_hMCFile->getHeader()->getBuild();
 	branch = m_hMCFile->getHeader()->getBranch();
 
@@ -228,7 +228,7 @@ void ComboDownloadInstallTask::onComplete()
 	getItemHandle()->installLaunchScripts();
 #endif
 
-	UserCore::Item::ItemInfo *pItem = getItemInfo();
+	auto pItem = getItemInfo();
 
 	if (pItem->isUpdating() && getMcfBuild() == pItem->getNextUpdateBuild())
 		pItem->updated();
@@ -251,192 +251,189 @@ void ComboDownloadInstallTask::onComplete()
 
 	uint32 res = 0;
 	onCompleteEvent(res);
-	getItemHandle()->completeStage(false);
+	getItemHandle()->getInternal()->completeStage(false);
 }
 
 
 
 #if defined(WITH_GTEST) && defined(WITH_GMOCK)
 
-#include <gtest/gtest.h>
-
-#include "BranchInfo.h"
-#include "BranchInstallInfo.h"
-#include "ItemInfo.h"
-#include "mcfcore/MCFI.h"
-#include "mcfcore/MCFHeaderI.h"
-
-using namespace IPC;
-using namespace UserCore;
-using namespace WebCore;
-using namespace MCFCore;
-using namespace UserCore::Item;
+#include "TaskTestingBase.h"
 
 namespace UnitTest
 {
 	using namespace ::testing;
 
-	class ComboDownloadInstallTaskFixture : public ::testing::Test
+	class ComboDownloadInstallTaskFixture : public BaseTaskTestingFixture<>
 	{
 	public:
 		ComboDownloadInstallTaskFixture()
-			: m_Id("123", "games")
-			, m_Branch(MCFBranch::BranchFromInt(1))
-			, m_Build(MCFBuild::BuildFromInt(2))
-			, m_BranchInstallInfo(1, &m_ItemInfo)
-			, m_BranchInfo(m_Branch, m_Id, &m_BranchInstallInfo, m_nUserId, 100)
-			, m_ItemInfo(&m_User, m_Id)
-			, m_Task(&m_ItemHandle, m_Branch, m_Build)
+			:  m_Task(&m_ItemHandle, m_Branch, m_Build)
 		{
 			m_Task.setUserCore(&m_User);
 			m_Task.setWebCore(&m_WebCore);
 			m_Task.m_hMCFile.setHandle(&m_Mcf);
 
-			ON_CALL(m_User, getServiceMain()).WillByDefault(Return(&m_ServiceMain));
-			ON_CALL(m_User, getWebCore()).WillByDefault(Return(&m_WebCore));
-			ON_CALL(m_User, getGameExplorerManager()).WillByDefault(Return(&m_GameExplorerManager));
-			ON_CALL(m_User, getUserId()).WillByDefault(Return(m_nUserId));
-			ON_CALL(m_User, getItemsAddedEvent()).WillByDefault(Return(&m_ItemAddedEvent));
-			ON_CALL(m_Mcf, getHeader()).WillByDefault(Return(&m_McfHeader));
-
-			ON_CALL(m_McfHeader, getBuild()).WillByDefault(Return(m_Build));
-			ON_CALL(m_McfHeader, getBranch()).WillByDefault(Return(m_Branch));
-			ON_CALL(m_McfHeader, getId()).WillByDefault(Return(m_Id.getItem()));
-			ON_CALL(m_McfHeader, getType()).WillByDefault(Return(m_Id.getType()));
-
-			ON_CALL(m_WebCore, getDownloadProviders(_, _, _, _)).WillByDefault(Invoke(this, &ComboDownloadInstallTaskFixture::getDownloadProviders));
-
+			ON_CALL(m_Mcf, downloadAndInstall(_)).WillByDefault(Invoke(this, &ComboDownloadInstallTaskFixture::downloadAndInstall));
+			ON_CALL(m_McfManager, getMcfPath(_, _, _, _)).WillByDefault(Return(m_strMcfSavePath));
 		}
 
 		~ComboDownloadInstallTaskFixture()
 		{
-			m_Task.m_hMCFile.setHandle(nullptr);
+			m_Task.m_hMCFile.releaseHandle();
 		}
 
-		void getDownloadProviders(DesuraId id, XML::gcXMLDocument &xmlDocument, MCFBranch mcfBranch, MCFBuild mcfBuild)
+		void downloadAndInstall(const char* szPath)
 		{
-			const char* szProviders = 
-				"<itemdownloadurl>"
-				"	<status code=\"0\"/>"
-				"	<item sitearea=\"games\" siteareaid=\"123\">"
-				"		<name>Sample Mod</name>"
-				"		<mcf build=\"2\" id=\"13\" branch=\"1\">"
-				"		<urls>"
-				"			<url>"
-				"				<link>mcf://server:62001</link>"
-				"				<provider>desura.com</provider>"
-				"				<banner>http://www.desura.com/banner.png</banner>"
-				"				<provlink>http://www.desura.com</provlink>"
-				"			</url>"
-				"		</urls>"
-				"		<version>1.0</version>"
-				"		<installsize>1024</installsize>"
-				"		<filesize>1024</filesize>"
-				"		<filehash>##############</filehash>"
-				"		<authhash>##############</authhash>"
-				"		<authed>1</authed>"
-				"		</mcf>"
-				"	</item>"
-				"</itemdownloadurl>";
+			if (m_bFail)
+				throw new gcException();
 
-			xmlDocument.LoadBuffer(szProviders, strlen(szProviders));
+			MCFCore::Misc::ProgressInfo p;
+
+			p.percent = 50;
+			p.flag = 0;
+
+			m_McfProgressEvent(p);
+
+			p.percent = 100;
+			p.flag = 1;
+
+			m_McfProgressEvent(p);
 		}
 
-		void run()
+		void run(bool bFail = false)
 		{
-			m_Task.doRun();
-		}
-
-		void setup(const char* itemInfoXml, const char* branchInfoXml, const char* branchInstallInfoXml)
-		{
+			if (bFail)
 			{
-				XML::gcXMLDocument doc(itemInfoXml, strlen(itemInfoXml));
-				m_ItemInfo.loadXmlData(100, doc.GetRoot("game"), 0);
+				m_bFail = true;
+
+				auto bStatus = m_ItemInfo.getStatus();
+				m_Task.doRun();
+
+				ASSERT_EQ(bStatus, m_ItemInfo.getStatus());
+				forceMockCheck();
+			}
+			else
+			{
+				EXPECT_CALL(m_GameExplorerManager, addItem(m_Id));
+				EXPECT_CALL(m_ServiceMain, setUninstallRegKey(m_Id.toInt64(), m_nInsSize));
+				EXPECT_CALL(m_ServiceMain, fixFolderPermissions(_));
+
+				m_Task.doRun();
+
+				ASSERT_TRUE(m_ItemInfo.isInstalled());
+				ASSERT_TRUE(m_ItemInfo.isLaunchable());
+
+				forceMockCheck();
 			}
 
-			{
-				XML::gcXMLDocument doc(branchInfoXml, strlen(branchInfoXml));
-				m_BranchInfo.loadXmlData(doc.GetRoot("branch"));
-			}
-
-			{
-				WildcardManager wildcard;
-				XML::gcXMLDocument doc(branchInstallInfoXml, strlen(branchInstallInfoXml));
-				m_BranchInstallInfo.processSettings(doc.GetRoot("branchinstallinfo"), &wildcard, false, true, nullptr);
-			}
 		}
 
-		const int m_nUserId = 666;
-		Event<uint32> m_ItemAddedEvent;
+		void setupUpgrade()
+		{
+			m_ItemInfo.addSFlag(UserCore::Item::ItemInfoI::STATUS_READY);
+			m_ItemInfo.setInstalledMcf(m_Branch, MCFBuild::BuildFromInt(1));
+		}
 
-		DesuraId m_Id; 
-		MCFBranch m_Branch;
-		MCFBuild m_Build;
+		void setupUnAuthed()
+		{
 
-		MCFHeaderMock m_McfHeader;
+		}
 
-		BranchInstallInfo m_BranchInstallInfo;
-
-		BranchInfo m_BranchInfo;
-		ItemInfo m_ItemInfo;
-
-		ItemHandleMock m_ItemHandle;
-		UserMock m_User;
-		WebCoreMock m_WebCore;
-		ServiceMainMock m_ServiceMain;
-		MCFMock m_Mcf;
-		GameExplorerManagerMock m_GameExplorerManager;
-
+		bool m_bFail = false;
+		const gcString m_strMcfSavePath = "C:\\TestPath";
 		ComboDownloadInstallTask m_Task;
 	};
 
-	const char* g_szItemInfo =
-		"<game siteareaid=\"123\">"
-		"	<name>Test Game</name>"
-		"	<nameid>test-game</nameid>"
-		"</game>";
-
-	const char* g_szBranchInfo =                                                
-		"<branch id=\"1\" platformid=\"100\">"
-		"	<name>Test</name>"
-		"	<nameon>1</nameon>"
-		"	<global>1</global>"
-		"	<free>0</free>"
-		"	<price>5,00€ EUR</price>"
-		"	<cdkey>0</cdkey>"
-		"	<demo>0</demo>"
-		"	<test>0</test>"
-		"	<inviteonly>1</inviteonly>"
-		"	<regionlock>0</regionlock>"
-		"	<preload>0</preload>"
-		"	<onaccount>1</onaccount>"
-		"</branch>";
-
-	const char* g_szBranchInstallInfo =
-		"<settings>"
-		"	<executes>"
-		"		<execute>"
-		"			<name>Play</name>"
-		"			<exe>play.exe</exe>"
-		"			<args>args</args>"
-		"		</execute>"
-		"	</executes>"
-		"	<installlocations>"
-		"		<installlocation>"
-		"			<check>%APPLICATION%/play.exe</check>"
-		"			<path>%APPLICATION%</path>"
-		"		</installlocation>"
-		"	</installlocations>"
-		"</settings>";
-
 	TEST_F(ComboDownloadInstallTaskFixture, New_NoTools)
 	{
-		setup(g_szItemInfo, g_szBranchInfo, g_szBranchInstallInfo);
+		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
+
+		setup(g_szItemInfo_Default);
+		run();
+	}
+
+	TEST_F(ComboDownloadInstallTaskFixture, New_NoTools_Preload)
+	{
+		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
+
+		setup(g_szItemInfo_Preload);
+		run();
+	}
+
+	TEST_F(ComboDownloadInstallTaskFixture, New_NoTools_Preorder)
+	{
+		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
+
+		setup(g_szItemInfo_Preorder);
+		run();
+	}
+
+	TEST_F(ComboDownloadInstallTaskFixture, New_NoTools_UnAuth)
+	{
+		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
+
+		setup(g_szItemInfo_Default);
+		setupUnAuthed();
 
 		run();
+	}
 
-		ASSERT_TRUE(m_ItemInfo.isInstalled());
-		ASSERT_TRUE(m_ItemInfo.isLaunchable());
+	TEST_F(ComboDownloadInstallTaskFixture, New_Tools_DlFin)
+	{
+		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
+
+		setup(g_szItemInfo_Default_Tools);
+		run();
+	}
+
+	TEST_F(ComboDownloadInstallTaskFixture, New_Tools_DlNotFin)
+	{
+		EXPECT_CALL(m_ItemHandleInternal, completeStage(_)).Times(0);
+		EXPECT_CALL(m_ItemHandleInternal, goToStageDownloadTools(An<bool>()));
+
+		setup(g_szItemInfo_Default_Tools);
+		run();
+	}
+
+	TEST_F(ComboDownloadInstallTaskFixture, Upgrade_NoTools)
+	{
+		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
+
+		setup(g_szItemInfo_Default);
+		setupUpgrade();
+
+		run();
+	}
+
+	TEST_F(ComboDownloadInstallTaskFixture, Upgrade_NoTools_UnAuth)
+	{
+		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
+
+		setup(g_szItemInfo_Default);
+		setupUpgrade();
+		setupUnAuthed();
+
+		run();
+	}
+
+	TEST_F(ComboDownloadInstallTaskFixture, New_NoTools_Fail)
+	{
+		EXPECT_CALL(m_ItemHandleInternal, resetStage(true));
+		setup(g_szItemInfo_Default);
+
+		run(false);
+	}
+
+
+	TEST_F(ComboDownloadInstallTaskFixture, Upgrade_NoTools_Fail)
+	{
+		EXPECT_CALL(m_ItemHandleInternal, resetStage(true));
+
+		setup(g_szItemInfo_Default);
+		setupUpgrade();
+
+		run(false);
 	}
 }
 

@@ -344,7 +344,7 @@ void ItemInfo::loadDb(sqlite3x::sqlite3_connection* db)
 
 		if (getStatus() & ItemInfoI::STATUS_INSTALLCOMPLEX)
 		{
-			UserCore::MCFManager *mm = UserCore::GetMCFManager();
+			UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
 
 			gcString path = mm->getMcfPath(this);
 
@@ -475,7 +475,7 @@ void ItemInfo::loadXmlData(uint32 platform, const XML::gcXMLElement &xmlNode, ui
 
 	if (getStatus() & ItemInfoI::STATUS_INSTALLCOMPLEX)
 	{
-		UserCore::MCFManager *mm = UserCore::GetMCFManager();
+		UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
 		installCheckFile = mm->getMcfPath(this);
 	}
 
@@ -718,8 +718,8 @@ void ItemInfo::setIconUrl(const char* url)
 	if (changed)
 		m_szIconUrl = gcString(url);
 
-	if (m_szIconUrl != "" && (changed || !UTIL::FS::isValidFile(m_szIcon)) && getUserCore()->getUserEx())
-		getUserCore()->getUserEx()->downloadImage(this, UserCore::Task::DownloadImgTask::ICON);
+	if (m_szIconUrl != "" && (changed || !UTIL::FS::isValidFile(m_szIcon)) && getUserCore()->getInternal())
+		getUserCore()->getInternal()->downloadImage(this, UserCore::Task::DownloadImgTask::ICON);
 }
 
 void ItemInfo::setLogoUrl(const char* url)		
@@ -732,8 +732,8 @@ void ItemInfo::setLogoUrl(const char* url)
 	if (changed)
 		m_szLogoUrl = gcString(url);
 
-	if (m_szLogoUrl != "" && (changed || !UTIL::FS::isValidFile(m_szLogo)) && getUserCore()->getUserEx())
-		getUserCore()->getUserEx()->downloadImage(this, UserCore::Task::DownloadImgTask::LOGO);
+	if (m_szLogoUrl != "" && (changed || !UTIL::FS::isValidFile(m_szLogo)) && getUserCore()->getInternal())
+		getUserCore()->getInternal()->downloadImage(this, UserCore::Task::DownloadImgTask::LOGO);
 }
 
 void ItemInfo::addToAccount()
@@ -741,10 +741,10 @@ void ItemInfo::addToAccount()
 	if (this->getStatus() & ItemInfoI::STATUS_ONACCOUNT)
 		return;
 
-	if (!getUserCore()->getUserEx())
+	if (!getUserCore()->getInternal())
 		return;
 
-	getUserCore()->getUserEx()->changeAccount(getId(), UserCore::Task::ChangeAccountTask::ACCOUNT_ADD);
+	getUserCore()->getInternal()->changeAccount(getId(), UserCore::Task::ChangeAccountTask::ACCOUNT_ADD);
 
 }
 
@@ -752,10 +752,10 @@ void ItemInfo::removeFromAccount()
 {
 	delSFlag(ItemInfoI::STATUS_ONACCOUNT);
 
-	if (!getUserCore()->getUserEx())
+	if (!getUserCore()->getInternal())
 		return;
 
-	getUserCore()->getUserEx()->changeAccount(getId(), UserCore::Task::ChangeAccountTask::ACCOUNT_REMOVE);
+	getUserCore()->getInternal()->changeAccount(getId(), UserCore::Task::ChangeAccountTask::ACCOUNT_REMOVE);
 }
 
 void ItemInfo::onInfoChange()

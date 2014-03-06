@@ -75,7 +75,7 @@ void ItemHandle::doLaunch(Helper::ItemLaunchHelperI* helper)
 
 	m_pUserCore->getItemManager()->setRecent(getItemInfo()->getId());
 
-	auto pUserEx = m_pUserCore->getUserEx();
+	auto pUserEx = m_pUserCore->getInternal();
 	HWND hMainWin;
 
 	if (pUserEx)
