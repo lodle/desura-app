@@ -30,6 +30,7 @@ $/LicenseInfo$
 #endif
 
 #include "BaseItemTask.h"
+#include "usercore/ToolManagerI.h"
 
 namespace UnitTest
 {
@@ -61,6 +62,9 @@ namespace UserCore
 			void onError(gcException &e);
 			void onComplete();
 
+			void startToolDownload();
+			void onToolComplete();
+
 		private:
 			friend class UnitTest::ComboDownloadInstallTaskFixture;
 
@@ -69,6 +73,9 @@ namespace UserCore
 			bool m_bInError = false;
 
 			bool m_bDownloading = true;
+			volatile bool m_bToolDownloadComplete = true;
+
+			ToolTransactionId m_ToolTTID = -1;
 
 			MCFBuild m_LastInsBuild;
 		};

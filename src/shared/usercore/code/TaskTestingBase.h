@@ -35,6 +35,7 @@ $/LicenseInfo$
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include "usercore/ToolManagerI.h"
 #include "BranchInfo.h"
 #include "BranchInstallInfo.h"
 #include "ItemInfo.h"
@@ -68,6 +69,7 @@ namespace UnitTest
 			ON_CALL(m_User, getUserId()).WillByDefault(Return(m_nUserId));
 			ON_CALL(m_User, getItemsAddedEvent()).WillByDefault(Return(&m_ItemAddedEvent));
 			ON_CALL(m_User, getInternal()).WillByDefault(Return(&m_UserInternal));
+			ON_CALL(m_User, getToolManager()).WillByDefault(Return(&m_ToolManager));
 
 			ON_CALL(m_UserInternal, getMCFManager()).WillByDefault(Return(&m_McfManager));
 
@@ -109,20 +111,6 @@ namespace UnitTest
 			m_ItemInfo.loadXmlData(100, doc.GetRoot("game"), 0, &wildcard);	
 		}
 
-		void forceMockCheck()
-		{
-			Mock::VerifyAndClearExpectations(&m_McfHeader);
-			Mock::VerifyAndClearExpectations(&m_ItemManager);
-			Mock::VerifyAndClearExpectations(&m_ItemHandle);
-			Mock::VerifyAndClearExpectations(&m_ItemHandleInternal);
-			Mock::VerifyAndClearExpectations(&m_UserInternal);
-			Mock::VerifyAndClearExpectations(&m_WebCore);
-			Mock::VerifyAndClearExpectations(&m_ServiceMain);
-			Mock::VerifyAndClearExpectations(&m_Mcf);
-			Mock::VerifyAndClearExpectations(&m_GameExplorerManager);
-			Mock::VerifyAndClearExpectations(&m_McfManager);
-		}
-
 		const uint32 m_nUserId = 666;
 		const uint64 m_nInsSize = 12345;
 		const gcString m_strMcfSavePath = "C:\\TestPath";
@@ -149,16 +137,19 @@ namespace UnitTest
 		MCFMock m_Mcf;
 		GameExplorerManagerMock m_GameExplorerManager;
 		MCFManagerMock m_McfManager;
+		ToolManagerMock m_ToolManager;
+
+		bool m_bUnAuthedDownload = false;
 
 	private:
 		void getDownloadProviders(DesuraId id, XML::gcXMLDocument &xmlDocument, MCFBranch mcfBranch, MCFBuild mcfBuild)
 		{
-			const char* szProviders = 
+			gcString szProviders(
 				"<itemdownloadurl>"
 				"	<status code=\"0\"/>"
 				"	<item sitearea=\"games\" siteareaid=\"123\">"
 				"		<name>Sample Mod</name>"
-				"		<mcf build=\"2\" id=\"13\" branch=\"1\">"
+				"		<mcf build=\"2\" id=\"789\" branch=\"1\">"
 				"		<urls>"
 				"			<url>"
 				"				<link>mcf://server:62001</link>"
@@ -172,12 +163,12 @@ namespace UnitTest
 				"		<filesize>1024</filesize>"
 				"		<filehash>##############</filehash>"
 				"		<authhash>##############</authhash>"
-				"		<authed>1</authed>"
+				"		<authed>{0}</authed>"
 				"		</mcf>"
 				"	</item>"
-				"</itemdownloadurl>";
+				"</itemdownloadurl>", m_bUnAuthedDownload?1:0);
 
-			xmlDocument.LoadBuffer(szProviders, strlen(szProviders));
+			xmlDocument.LoadBuffer(szProviders.c_str(), szProviders.size());
 		}
 
 		void resolveWildcard(WCSpecialInfo &info)
@@ -230,7 +221,7 @@ namespace UnitTest
 		"			<regionlock>0</regionlock>"
 		"			<preload>0</preload>"
 		"			<onaccount>1</onaccount>"
-		"			<mcf>"
+		"			<mcf id=\"789\">"
 		"				<build>2</build>"
 		"			</mcf>"
 		"		</branch>"
@@ -251,7 +242,7 @@ namespace UnitTest
 		"			<regionlock>0</regionlock>"
 		"			<preload>20201001121200</preload>"
 		"			<onaccount>1</onaccount>"
-		"			<mcf>"
+		"			<mcf id=\"789\">"
 		"				<build>2</build>"
 		"			</mcf>"
 		"		</branch>"
@@ -290,7 +281,7 @@ namespace UnitTest
 		"			<regionlock>0</regionlock>"
 		"			<preload>0</preload>"
 		"			<onaccount>1</onaccount>"
-		"			<mcf>"
+		"			<mcf id=\"789\">"
 		"				<build>2</build>"
 		"			</mcf>"
 		"			<tools>"

@@ -66,6 +66,7 @@ namespace UserCore
 			virtual MCFBranch getBestBranch(MCFBranch branch)=0;
 			virtual void resetInstalledMcf()=0;
 			virtual void overideInstalledBuild(MCFBuild build)=0;
+			virtual BranchInstallInfo* getBranchOrCurrent(MCFBranch branch)=0;
 		};
 
 		class ItemInfo : public ItemInfoI, public BranchItemInfoI, public ItemInfoInternalI
@@ -348,7 +349,7 @@ namespace UserCore
 			void loadBranchXmlData(const XML::gcXMLElement &branch);
 	
 			BranchInfo* getCurrentBranchFull();
-			BranchInstallInfo* getBranchOrCurrent(MCFBranch branch);
+			BranchInstallInfo* getBranchOrCurrent(MCFBranch branch) override;
 
 
 		private:

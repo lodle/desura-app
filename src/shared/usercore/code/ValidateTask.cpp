@@ -72,6 +72,8 @@ void ValidateTask::doRun()
 	auto dp = std::make_shared<MCFDownloadProviders>(getWebCore(), getUserCore()->getUserId());
 	MCFDownloadProviders::forceLoad(m_hMCFile, dp);
 
+	m_bUnAuthed = dp->isUnAuthed();
+
 	validateHeader(build, branch);
 
 	UserCore::Item::BranchInfoI* curBranch = pItem->getCurrentBranch();
@@ -82,7 +84,7 @@ void ValidateTask::doRun()
 	if (!curBranch)
 		throw gcException(ERR_NULLHANDLE, "Current branch is nullptr");
 
-	gcString savePath = mm->getMcfPath(getItemId(), curBranch->getBranchId(), build);
+	gcString savePath = mm->getMcfPath(getItemId(), curBranch->getBranchId(), build, m_bUnAuthed);
 		
 	if (savePath == "")
 		savePath = mm->newMcfPath(getItemId(), curBranch->getBranchId(), build, m_bUnAuthed);
@@ -125,6 +127,8 @@ void ValidateTask::doRun()
 
 				auto dp = std::make_shared<MCFDownloadProviders>(getWebCore(), getUserCore()->getUserId());
 				MCFDownloadProviders::forceLoad(m_hMCFile, dp);
+
+				m_bUnAuthed = dp->isUnAuthed();
 			}
 		}
 		catch (gcException &e)

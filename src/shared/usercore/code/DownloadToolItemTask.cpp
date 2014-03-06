@@ -30,34 +30,25 @@ $/LicenseInfo$
 
 
 
-namespace UserCore
-{
-namespace ItemTask
-{
+using namespace UserCore::ItemTask;
 
 
-DownloadToolTask::DownloadToolTask(UserCore::Item::ItemHandle* handle, uint32 ttid, const char* downloadPath, MCFBranch branch, MCFBuild build) : BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOADTOOL, "DownloadTool", handle, branch, build)
+DownloadToolTask::DownloadToolTask(UserCore::Item::ItemHandle* handle, uint32 ttid, const char* downloadPath, MCFBranch branch, MCFBuild build) 
+	: BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOADTOOL, "DownloadTool", handle, branch, build)
+	, m_szDownloadPath(downloadPath)
+	, m_ToolTTID(ttid)
 {
-	m_szDownloadPath = downloadPath;
-	m_ToolTTID = ttid;
-	m_bLaunch = false;
-	m_bInstallAfter = false;
-
-	m_bCancelled = false;
 }
 
-DownloadToolTask::DownloadToolTask(UserCore::Item::ItemHandle* handle, bool launch) : BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOADTOOL, "DownloadTool", handle, MCFBranch(), MCFBuild())
+DownloadToolTask::DownloadToolTask(UserCore::Item::ItemHandle* handle, bool launch, uint32 ttid) 
+	: BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOADTOOL, "DownloadTool", handle, MCFBranch(), MCFBuild())
+	, m_ToolTTID(ttid)
+	, m_bLaunch(launch)
 {
-	m_ToolTTID = UINT_MAX;
-	m_bLaunch = launch;
-	m_bInstallAfter = true;
-
-	m_bCancelled = false;
 }
 
 DownloadToolTask::~DownloadToolTask()
 {
-
 }
 
 void DownloadToolTask::doRun()
@@ -107,32 +98,15 @@ void DownloadToolTask::validateTools()
 	if (toolList.size() == 0)
 		return;
 
-	if (!getUserCore()->getToolManager()->areAllToolsValid(toolList))
-	{
-		//missing tools. Gather info again
-		XML::gcXMLDocument doc;
+	auto pToolManager =  getUserCore()->getToolManager();
 
-		getWebCore()->getItemInfo(getItemId(), doc, MCFBranch(), MCFBuild());
+	if (pToolManager->areAllToolsValid(toolList))
+		return;
 
-		auto uNode = doc.GetRoot("iteminfo");
+	pToolManager->reloadTools(getItemId());
+	getItemInfo()->getCurrentBranch()->getToolList(toolList);
 
-		if (!uNode.IsValid())
-			throw gcException(ERR_BADXML);
-
-		auto toolNode = uNode.FirstChildElement("toolinfo");
-
-		if (toolNode.IsValid())
-			getUserCore()->getToolManager()->parseXml(toolNode);
-
-		auto gameNode = uNode.FirstChildElement("games");
-
-		if (!gameNode.IsValid())
-			throw gcException(ERR_BADXML);
-
-		getItemInfo()->getCurrentBranch()->getToolList(toolList);
-	}
-
-	if (!getUserCore()->getToolManager()->areAllToolsValid(toolList))
+	if (!pToolManager->areAllToolsValid(toolList))
 		throw gcException(ERR_INVALID, "Tool ids cannot be resolved into tools.");
 }
 
@@ -205,7 +179,7 @@ void DownloadToolTask::onComplete()
 	uint32 blank = 0;
 	onCompleteEvent(blank);
 
-	if (m_bInstallAfter)
+	if (HasAllFlags(getItemInfo()->getStatus(), UserCore::Item::ItemInfoI::STATUS_READY|UserCore::Item::ItemInfoI::STATUS_INSTALLED))
 	{
 		getItemHandle()->getInternal()->goToStageInstallTools(m_bLaunch);
 	}
@@ -216,8 +190,4 @@ void DownloadToolTask::onComplete()
 		else
 			getItemHandle()->getInternal()->goToStageInstall(m_szDownloadPath.c_str(), getMcfBranch());
 	}
-}
-
-
-}
 }

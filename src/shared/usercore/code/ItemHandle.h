@@ -34,6 +34,7 @@ $/LicenseInfo$
 #include "ItemInfo.h"
 #include "BaseItemTask.h"
 #include "util_thread/BaseThread.h"
+#include "usercore/ToolManagerI.h"
 
 class BaseHandler;
 
@@ -89,8 +90,8 @@ namespace UserCore
 			virtual void goToStageUninstallUpdate(const char* path, MCFBuild lastBuild)=0;
 			virtual void goToStageLaunch()=0;
 
-			virtual void goToStageDownloadTools(uint32 ttid, const char* downloadPath, MCFBranch branch, MCFBuild build)=0;
-			virtual void goToStageDownloadTools(bool launch)=0;
+			virtual void goToStageDownloadTools(ToolTransactionId ttid, const char* downloadPath, MCFBranch branch, MCFBuild build)=0;
+			virtual void goToStageDownloadTools(bool launch, ToolTransactionId ttid = -1)=0;
 			virtual void goToStageInstallTools(bool launch)=0;
 		};
 
@@ -118,8 +119,8 @@ namespace UserCore
 			MOCK_METHOD2(goToStageUninstallUpdate, void(const char* path, MCFBuild lastBuild));
 			MOCK_METHOD0(goToStageLaunch, void());
 
-			MOCK_METHOD4(goToStageDownloadTools, void(uint32 ttid, const char* downloadPath, MCFBranch branch, MCFBuild build));
-			MOCK_METHOD1(goToStageDownloadTools, void(bool launch));
+			MOCK_METHOD4(goToStageDownloadTools, void(ToolTransactionId ttid, const char* downloadPath, MCFBranch branch, MCFBuild build));
+			MOCK_METHOD2(goToStageDownloadTools, void(bool launch, ToolTransactionId ttid));
 			MOCK_METHOD1(goToStageInstallTools, void(bool launch));
 		};
 #endif
@@ -198,8 +199,8 @@ namespace UserCore
 			void goToStageUninstallUpdate(const char* path, MCFBuild lastBuild) override;
 			void goToStageLaunch() override;
 
-			void goToStageDownloadTools(uint32 ttid, const char* downloadPath, MCFBranch branch, MCFBuild build) override;
-			void goToStageDownloadTools(bool launch) override;
+			void goToStageDownloadTools(ToolTransactionId ttid, const char* downloadPath, MCFBranch branch, MCFBuild build) override;
+			void goToStageDownloadTools(bool launch, ToolTransactionId ttid = -1) override;
 			void goToStageInstallTools(bool launch) override;
 			
 			bool install(MCFBranch branch, MCFBuild build, UserCore::ItemTask::GI_FLAGS flags);

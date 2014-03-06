@@ -71,17 +71,21 @@ void ComboDownloadInstallTask::doRun()
 	auto dp = std::make_shared<MCFDownloadProviders>(getWebCore(), getUserCore()->getUserId());
 	MCFDownloadProviders::forceLoad(m_hMCFile, dp);
 
+	m_bUnAuthed = dp->isUnAuthed();
+
 	validateHeader(build, branch);
 
 	if (isStopped())
 		return;
+
+	startToolDownload();
 
 	UserCore::Item::BranchInfoI* curBranch = pItem->getCurrentBranch();
 
 	if (!curBranch)
 		throw gcException(ERR_NULLHANDLE, "Current branch is nullptr");
 
-	gcString savePath = mm->getMcfPath(getItemId(), curBranch->getBranchId(), build);
+	gcString savePath = mm->getMcfPath(getItemId(), curBranch->getBranchId(), build, m_bUnAuthed);
 		
 	if (savePath == "")
 		savePath = mm->newMcfPath(getItemId(), curBranch->getBranchId(), build, m_bUnAuthed);
@@ -126,22 +130,7 @@ void ComboDownloadInstallTask::onError(gcException &e)
 {
 	Warning(gcString("Error in MCF Download And Install: {0}\n", e));
 	m_bInError=true;
-	getItemHandle()->getInternal()->completeStage(true);
-
-	auto pItem = getItemInfo();
-
-	if (pItem)
-	{
-		if (m_bUpdating)
-		{
-			pItem->delSFlag(UserCore::Item::ItemInfoI::STATUS_UPDATING);
-			pItem->addSFlag(UserCore::Item::ItemInfoI::STATUS_READY);
-		}
-		else
-		{
-			pItem->delSFlag(UserCore::Item::ItemInfoI::STATUS_DOWNLOADING);
-		}
-	}
+	getItemHandle()->getInternal()->resetStage(true);
 }
 
 void ComboDownloadInstallTask::onStop()
@@ -157,7 +146,7 @@ void ComboDownloadInstallTask::cancel()
 
 void ComboDownloadInstallTask::onProgress(MCFCore::Misc::ProgressInfo& p)
 {
-	if (m_bDownloading && p.flag == 1)
+	if (m_bDownloading && p.flag == 1 && !m_bUpdating)
 	{
 		m_bDownloading = false;
 
@@ -251,9 +240,51 @@ void ComboDownloadInstallTask::onComplete()
 
 	uint32 res = 0;
 	onCompleteEvent(res);
-	getItemHandle()->getInternal()->completeStage(false);
+
+	if (m_bToolDownloadComplete)
+		getItemHandle()->getInternal()->completeStage(false);
+	else
+		getItemHandle()->getInternal()->goToStageDownloadTools(false, m_ToolTTID);
 }
 
+
+void ComboDownloadInstallTask::startToolDownload()
+{
+	//dont download tools for preorders just yet
+	if (getItemInfo()->getCurrentBranch()->isPreOrder())
+		return;
+
+	std::vector<DesuraId> toolList;
+	getItemInfo()->getCurrentBranch()->getToolList(toolList);
+
+	if (toolList.size() == 0)
+		return;
+
+	auto pToolManager =  getUserCore()->getToolManager();
+
+	if (!pToolManager->areAllToolsValid(toolList))
+	{
+		pToolManager->reloadTools(getItemId());
+		getItemInfo()->getCurrentBranch()->getToolList(toolList);
+
+		if (!pToolManager->areAllToolsValid(toolList))
+			throw gcException(ERR_INVALID, "Tool ids cannot be resolved into tools.");
+	}
+
+	m_bToolDownloadComplete = false;
+
+	UserCore::Misc::ToolTransaction* tt = new UserCore::Misc::ToolTransaction();
+
+	tt->onCompleteEvent += delegate(this, &ComboDownloadInstallTask::onToolComplete);
+	tt->toolsList = toolList;
+	
+	m_ToolTTID = pToolManager->downloadTools(tt);
+}
+
+void ComboDownloadInstallTask::onToolComplete()
+{
+	m_bToolDownloadComplete = true;
+}
 
 
 #if defined(WITH_GTEST) && defined(WITH_GMOCK)
@@ -276,6 +307,8 @@ namespace UnitTest
 
 			ON_CALL(m_Mcf, downloadAndInstall(_)).WillByDefault(Invoke(this, &ComboDownloadInstallTaskFixture::downloadAndInstall));
 			ON_CALL(m_McfManager, getMcfPath(_, _, _, _)).WillByDefault(Return(m_strMcfSavePath));
+
+			m_Task.onMcfProgressEvent += delegate(this, &ComboDownloadInstallTaskFixture::onTaskProgress);
 		}
 
 		~ComboDownloadInstallTaskFixture()
@@ -286,7 +319,11 @@ namespace UnitTest
 		void downloadAndInstall(const char* szPath)
 		{
 			if (m_bFail)
-				throw new gcException();
+			{
+				gcException e;
+				m_McfErrorEvent(e);
+				return;
+			}
 
 			MCFCore::Misc::ProgressInfo p;
 
@@ -306,12 +343,7 @@ namespace UnitTest
 			if (bFail)
 			{
 				m_bFail = true;
-
-				auto bStatus = m_ItemInfo.getStatus();
 				m_Task.doRun();
-
-				ASSERT_EQ(bStatus, m_ItemInfo.getStatus());
-				forceMockCheck();
 			}
 			else
 			{
@@ -323,23 +355,51 @@ namespace UnitTest
 
 				ASSERT_TRUE(m_ItemInfo.isInstalled());
 				ASSERT_TRUE(m_ItemInfo.isLaunchable());
-
-				forceMockCheck();
+				ASSERT_FALSE(m_ItemInfo.isUpdating());				
 			}
-
 		}
 
-		void setupUpgrade()
+		uint32 downloadTools(UserCore::Misc::ToolTransaction* tt)
 		{
-			m_ItemInfo.addSFlag(UserCore::Item::ItemInfoI::STATUS_READY);
+			if (m_bCompleteToolDownload)
+				tt->onCompleteEvent();
+
+			delete tt;
+			return 1;
+		}
+
+		void setupUpgrade(const char* szItemInfo)
+		{
+			m_ItemInfo.addSFlag(UserCore::Item::ItemInfoI::STATUS_READY|UserCore::Item::ItemInfoI::STATUS_UPDATEAVAL|UserCore::Item::ItemInfoI::STATUS_INSTALLED|UserCore::Item::ItemInfoI::STATUS_ONCOMPUTER);
 			m_ItemInfo.setInstalledMcf(m_Branch, MCFBuild::BuildFromInt(1));
+			m_bUpgrading = true;
+
+			XML::gcXMLDocument doc;
+			doc.LoadBuffer(szItemInfo, strlen(szItemInfo));
+			m_ItemInfo.getInternal()->getBranchOrCurrent(m_Branch)->processUpdateXml(doc.GetRoot("game").FirstChildElement("branches").FirstChildElement("branch"));
 		}
 
 		void setupUnAuthed()
 		{
-
+			m_bUnAuthedDownload = true;
 		}
 
+		void setupToolComplete()
+		{
+			m_bCompleteToolDownload = true;
+		}
+
+		void onTaskProgress(MCFCore::Misc::ProgressInfo &p)
+		{
+			if (m_bUpgrading)
+			{
+				ASSERT_FALSE(HasAnyFlags(m_ItemInfo.getStatus(), UserCore::Item::ItemInfoI::STATUS_DOWNLOADING));
+				ASSERT_FALSE(HasAnyFlags(m_ItemInfo.getStatus(), UserCore::Item::ItemInfoI::STATUS_UPLOADING));
+			}
+		}
+
+		bool m_bUpgrading = false;
+		bool m_bCompleteToolDownload = false;
 		bool m_bFail = false;
 		const gcString m_strMcfSavePath = "C:\\TestPath";
 		ComboDownloadInstallTask m_Task;
@@ -371,6 +431,7 @@ namespace UnitTest
 
 	TEST_F(ComboDownloadInstallTaskFixture, New_NoTools_UnAuth)
 	{
+		EXPECT_CALL(m_McfManager, getMcfPath(_, _, _, true)).WillRepeatedly(Return(m_strMcfSavePath));
 		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
 
 		setup(g_szItemInfo_Default);
@@ -379,20 +440,47 @@ namespace UnitTest
 		run();
 	}
 
-	TEST_F(ComboDownloadInstallTaskFixture, New_Tools_DlFin)
+	TEST_F(ComboDownloadInstallTaskFixture, New_Tools_InvalidTools_DlFin)
 	{
+		EXPECT_CALL(m_ToolManager, reloadTools(_));
+		EXPECT_CALL(m_ToolManager, areAllToolsValid(_))
+			.WillOnce(Return(false))
+			.WillOnce(Return(true));
+		EXPECT_CALL(m_ToolManager, downloadTools(_)).WillOnce(Invoke(this, &ComboDownloadInstallTaskFixture::downloadTools));
+
 		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
 
 		setup(g_szItemInfo_Default_Tools);
+		setupToolComplete();
+
+		run();
+	}
+
+	TEST_F(ComboDownloadInstallTaskFixture, New_Tools_DlFin)
+	{
+		EXPECT_CALL(m_ToolManager, reloadTools(_)).Times(0);
+		EXPECT_CALL(m_ToolManager, areAllToolsValid(_)).WillOnce(Return(true));
+		EXPECT_CALL(m_ToolManager, downloadTools(_)).WillOnce(Invoke(this, &ComboDownloadInstallTaskFixture::downloadTools));
+
+		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
+
+		setup(g_szItemInfo_Default_Tools);
+		setupToolComplete();
+
 		run();
 	}
 
 	TEST_F(ComboDownloadInstallTaskFixture, New_Tools_DlNotFin)
 	{
+		EXPECT_CALL(m_ToolManager, reloadTools(_)).Times(0);
+		EXPECT_CALL(m_ToolManager, areAllToolsValid(_)).WillOnce(Return(true));
+		EXPECT_CALL(m_ToolManager, downloadTools(_)).WillOnce(Invoke(this, &ComboDownloadInstallTaskFixture::downloadTools));
+
 		EXPECT_CALL(m_ItemHandleInternal, completeStage(_)).Times(0);
-		EXPECT_CALL(m_ItemHandleInternal, goToStageDownloadTools(An<bool>()));
+		EXPECT_CALL(m_ItemHandleInternal, goToStageDownloadTools(An<bool>(), An<ToolTransactionId>()));
 
 		setup(g_szItemInfo_Default_Tools);
+
 		run();
 	}
 
@@ -401,17 +489,18 @@ namespace UnitTest
 		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
 
 		setup(g_szItemInfo_Default);
-		setupUpgrade();
+		setupUpgrade(g_szItemInfo_Default);
 
 		run();
 	}
 
 	TEST_F(ComboDownloadInstallTaskFixture, Upgrade_NoTools_UnAuth)
 	{
+		EXPECT_CALL(m_McfManager, getMcfPath(_, _, _, true)).WillRepeatedly(Return(m_strMcfSavePath));
 		EXPECT_CALL(m_ItemHandleInternal, completeStage(false));
 
 		setup(g_szItemInfo_Default);
-		setupUpgrade();
+		setupUpgrade(g_szItemInfo_Default);
 		setupUnAuthed();
 
 		run();
@@ -422,7 +511,7 @@ namespace UnitTest
 		EXPECT_CALL(m_ItemHandleInternal, resetStage(true));
 		setup(g_szItemInfo_Default);
 
-		run(false);
+		run(true);
 	}
 
 
@@ -431,9 +520,9 @@ namespace UnitTest
 		EXPECT_CALL(m_ItemHandleInternal, resetStage(true));
 
 		setup(g_szItemInfo_Default);
-		setupUpgrade();
+		setupUpgrade(g_szItemInfo_Default);
 
-		run(false);
+		run(true);
 	}
 }
 

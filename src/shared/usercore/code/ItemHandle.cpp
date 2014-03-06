@@ -371,14 +371,14 @@ void ItemHandle::completeStage(bool close)
 }
 
 
-void ItemHandle::goToStageDownloadTools(uint32 ttid, const char* downloadPath, MCFBranch branch, MCFBuild build)
+void ItemHandle::goToStageDownloadTools(ToolTransactionId ttid, const char* downloadPath, MCFBranch branch, MCFBuild build)
 {
 	registerTask(new UserCore::ItemTask::DownloadToolTask(this, ttid, downloadPath, branch, build));
 }
 
-void ItemHandle::goToStageDownloadTools(bool launch)
+void ItemHandle::goToStageDownloadTools(bool launch, ToolTransactionId ttid)
 {
-	registerTask(new UserCore::ItemTask::DownloadToolTask(this, launch));
+	registerTask(new UserCore::ItemTask::DownloadToolTask(this, launch, ttid));
 }
 
 void ItemHandle::goToStageInstallTools(bool launch)

@@ -667,6 +667,8 @@ void ItemManager::retrieveItemInfo(DesuraId id, uint32 statusOveride, WildcardMa
 		pi.rootNode = gamesNode;
 
 		parseGamesXml(pi);
+
+		m_pUser->getToolManager()->parseXml(uNode.FirstChildElement("toolinfo"));
 	}
 	else
 	{

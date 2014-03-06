@@ -41,16 +41,11 @@ namespace UserCore
 namespace ItemTask
 {
 
-DownloadTask::DownloadTask(UserCore::Item::ItemHandle* handle, const char* mcfPath) : BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOAD, "Download", handle)
+DownloadTask::DownloadTask(UserCore::Item::ItemHandle* handle, const char* mcfPath) 
+	: BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOAD, "Download", handle)
+	, m_szMcfPath(mcfPath)
 {
 	onErrorEvent += delegate(this, &DownloadTask::onError);
-	m_bInError = false;
-
-	m_ToolTTID = -1;
-	m_bToolDownloadComplete = false;
-
-	m_szMcfPath = mcfPath;
-	m_bInitFinished = false;
 }
 
 DownloadTask::~DownloadTask()
@@ -97,40 +92,23 @@ void DownloadTask::startToolDownload()
 	if (toolList.size() == 0)
 		return;
 
-	if (!getUserCore()->getToolManager()->areAllToolsValid(toolList))
+	auto pToolManager =  getUserCore()->getToolManager();
+
+	if (!pToolManager->areAllToolsValid(toolList))
 	{
-		//missing tools. Gather info again
-		XML::gcXMLDocument doc;
-
-		getWebCore()->getItemInfo(getItemId(), doc, MCFBranch(), MCFBuild());
-
-		auto uNode = doc.GetRoot("iteminfo");
-
-		if (!uNode.IsValid())
-			throw gcException(ERR_BADXML);
-
-		auto toolNode = uNode.FirstChildElement("toolinfo");
-
-		if (toolNode.IsValid())
-			getUserCore()->getToolManager()->parseXml(toolNode);
-
-		auto gameNode = uNode.FirstChildElement("games");
-
-		if (!gameNode.IsValid())
-			throw gcException(ERR_BADXML);
-
+		pToolManager->reloadTools(getItemId());
 		getItemInfo()->getCurrentBranch()->getToolList(toolList);
-	}
 
-	if (!getUserCore()->getToolManager()->areAllToolsValid(toolList))
-		throw gcException(ERR_INVALID, "Tool ids cannot be resolved into tools.");
+		if (!pToolManager->areAllToolsValid(toolList))
+			throw gcException(ERR_INVALID, "Tool ids cannot be resolved into tools.");
+	}
 
 	UserCore::Misc::ToolTransaction* tt = new UserCore::Misc::ToolTransaction();
 
 	tt->onCompleteEvent += delegate(this, &DownloadTask::onToolComplete);
 	tt->toolsList = toolList;
 	
-	m_ToolTTID = getUserCore()->getToolManager()->downloadTools(tt);
+	m_ToolTTID = pToolManager->downloadTools(tt);
 }
 
 void DownloadTask::onToolComplete()
