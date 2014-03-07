@@ -24,16 +24,15 @@ $/LicenseInfo$
 */
 
 #include "Common.h"
-#include "InstallDLPage.h"
+#include "InstallComboDLINPage.h"
 #include "MainApp.h"
 
 namespace
 {
-
-	class DownloadErrorHelper : public HelperButtonsI
+	class ComboDLINErrorHelper : public HelperButtonsI
 	{
 	public:
-		DownloadErrorHelper(DesuraId id)
+		ComboDLINErrorHelper(DesuraId id)
 		{
 			m_Id = id;
 		}
@@ -70,17 +69,19 @@ namespace
 
 using namespace UI::Forms::ItemFormPage;
 
-InstallDLPage::InstallDLPage(wxWindow* parent) : InstallBannerPage(parent, true)
+InstallComboDLINPage::InstallComboDLINPage(wxWindow* parent, std::function<void()> fnOnInstall) 
+	: InstallBannerPage(parent, true)
+	, m_fnOnInstall(fnOnInstall)
 {
 	m_butPause = new gcButton(this, wxID_ANY, Managers::GetString(L"#PAUSE"));
 	m_butHide = new gcButton(this, wxID_ANY, Managers::GetString(L"#HIDE"));
 	m_butCancel->SetLabel(Managers::GetString(L"#CANCEL"));
 
 	m_pButSizer->Clear(false);
-	m_pButSizer->Add( 0, 0, 1, wxEXPAND, 5 );
-	m_pButSizer->Add( m_butHide, 0,  wxTOP|wxBOTTOM|wxLEFT, 5 );
-	m_pButSizer->Add( m_butPause, 0,  wxTOP|wxBOTTOM|wxLEFT, 5 );
-	m_pButSizer->Add( m_butCancel, 0, wxALL, 5 );
+	m_pButSizer->Add(0, 0, 1, wxEXPAND, 5);
+	m_pButSizer->Add(m_butHide, 0, wxTOP | wxBOTTOM | wxLEFT, 5);
+	m_pButSizer->Add(m_butPause, 0, wxTOP | wxBOTTOM | wxLEFT, 5);
+	m_pButSizer->Add(m_butCancel, 0, wxALL, 5);
 
 	m_butPause->Enable(false);
 	m_butCancel->Enable(false);
@@ -89,15 +90,15 @@ InstallDLPage::InstallDLPage(wxWindow* parent) : InstallBannerPage(parent, true)
 	this->setParentSize(-1, 140);
 }
 
-InstallDLPage::~InstallDLPage()
+InstallComboDLINPage::~InstallComboDLINPage()
 {
 }
 
-void InstallDLPage::init()
+void InstallComboDLINPage::init()
 {
 }
 
-void InstallDLPage::onButtonPressed(wxCommandEvent& event)
+void InstallComboDLINPage::onButtonPressed(wxCommandEvent& event)
 {
 	if (event.GetId() == m_butPause->GetId())
 		getItemHandle()->setPaused(!m_bPaused);
@@ -109,7 +110,7 @@ void InstallDLPage::onButtonPressed(wxCommandEvent& event)
 		getItemHandle()->cancelCurrentStage();
 }
 
-void InstallDLPage::onPause(bool &state)
+void InstallComboDLINPage::onPause(bool &state)
 {
 	gcFrame* par = dynamic_cast<gcFrame*>(GetParent());
 
@@ -132,7 +133,7 @@ void InstallDLPage::onPause(bool &state)
 	}
 }
 
-void InstallDLPage::onComplete(gcString& path)
+void InstallComboDLINPage::onComplete(gcString& path)
 {
 	if (m_bError)
 		return;
@@ -144,7 +145,7 @@ void InstallDLPage::onComplete(gcString& path)
 	m_labInfo->SetLabel(Managers::GetString(L"#COMPLTETED"));
 }
 
-void InstallDLPage::onError(gcException& e)
+void InstallComboDLINPage::onError(gcException& e)
 {
 	gcFrame* par = dynamic_cast<gcFrame*>(GetParent());
 	if (par)
@@ -154,51 +155,37 @@ void InstallDLPage::onError(gcException& e)
 
 	if (!getItemHandle()->shouldPauseOnError())
 	{
-		DownloadErrorHelper helper(getItemId());
+		ComboDLINErrorHelper helper(getItemId());
 		gcErrorBox(GetParent(), "#IF_DLERRTITLE", "#IF_DLERROR", e, &helper);
 	}
 }
 
-void InstallDLPage::onMcfProgress(MCFCore::Misc::ProgressInfo& info)
+void InstallComboDLINPage::onMcfProgress(MCFCore::Misc::ProgressInfo& info)
 {
-	if (m_bInit && (info.flag & MCFCore::Misc::ProgressInfo::FLAG_INITFINISHED))
+	if (m_bDownloading && info.flag == 1)
 	{
-		m_bInit = false;
+		m_fnOnInstall();
 
-		m_butPause->Enable(true);
-		m_butCancel->Enable(true);
-		m_pbProgress->setProgress(0);
+		m_pbProgress->setCaption("");
+		m_bDownloading = false;
 	}
-	else if (info.flag & MCFCore::Misc::ProgressInfo::FLAG_FINALIZING)
+
+	std::string lab = UTIL::MISC::genTimeString(info.hour, info.min, info.rate);
+	m_labInfo->SetLabel(lab);
+
+	if (m_bDownloading && info.totalAmmount > 0)
 	{
-		m_labInfo->SetLabel( Managers::GetString(L"#FINALIZING") );
-		m_butPause->Enable(false);
-		m_butCancel->Enable(false);
-		m_pbProgress->setProgress(100);
+		std::string done = UTIL::MISC::niceSizeStr(info.doneAmmount, true);
+		std::string total = UTIL::MISC::niceSizeStr(info.totalAmmount);
+		m_pbProgress->setCaption(gcString(Managers::GetString("#PROGRESS_INFO"), done, total));
 	}
-	else
-	{
-		if (!m_bInit)
-		{
-			std::string lab = UTIL::MISC::genTimeString(info.hour, info.min, info.rate);
-			m_labInfo->SetLabel(lab);
 
+	m_pbProgress->setProgress(info.percent);
 
-			if (info.totalAmmount > 0)
-			{
-				std::string done = UTIL::MISC::niceSizeStr(info.doneAmmount, true);
-				std::string total = UTIL::MISC::niceSizeStr(info.totalAmmount);
+	gcFrame* par = dynamic_cast<gcFrame*>(GetParent());
 
-				m_pbProgress->setCaption(gcString(Managers::GetString("#PROGRESS_INFO"), done, total));
-			}
-		}
-
-		m_pbProgress->setProgress(info.percent);
-
-		gcFrame* par = dynamic_cast<gcFrame*>(GetParent());
-		if (par)
-			par->setProgress(info.percent);
-	}
+	if (par)
+		par->setProgress(info.percent);
 
 	Refresh(false);
 }

@@ -31,6 +31,7 @@ $/LicenseInfo$
 #include "thread/SFTController.h"
 #include "thread/SMTController.h"
 #include "thread/WGTController.h"
+#include "thread/ComboDLINTController.h"
 #include "mcfcore/DownloadProvider.h"
 
 #include "XMLSaveAndCompress.h"
@@ -303,29 +304,11 @@ void MCF::dlFilesFromWeb( )
 	if (workerCount > 3)
 		workerCount = 3;
 
-	MCFCore::Thread::WGTController *temp = new MCFCore::Thread::WGTController(m_pDownloadProviders, workerCount, this, mcfExists);
-	temp->onProgressEvent += delegate(&onProgressEvent);
-	temp->onErrorEvent += delegate(&onErrorEvent);
-	temp->onProviderEvent += delegate(&onProviderEvent);
+	MCFCore::Thread::WGTController thread(m_pDownloadProviders, workerCount, this, mcfExists);
+	thread.onProviderEvent += delegate(&onProviderEvent);
 
-	m_mThreadMutex.lock();
-	m_pTHandle = temp;
-	m_mThreadMutex.unlock();
-
-	if (m_bStopped)
+	if (!runThread(thread))
 		return;
-
-	try
-	{
-		m_pTHandle->start();
-		m_pTHandle->join();
-		safe_delete(m_pTHandle);
-	}
-	catch (gcException &)
-	{
-		safe_delete(m_pTHandle);
-		throw;
-	}
 
 	saveMCF_Header();
 }
@@ -456,28 +439,10 @@ void MCF::saveFiles(const char* path)
 
 	UTIL::FS::recMakeFolder(UTIL::FS::Path(path, "", false));
 
-	MCFCore::Thread::SFTController *temp = new MCFCore::Thread::SFTController(m_uiWCount, this, path);
-	temp->onProgressEvent +=delegate(&onProgressEvent);
-	temp->onErrorEvent += delegate(&onErrorEvent);
+	MCFCore::Thread::SFTController thread(m_uiWCount, this, path);
 
-	m_mThreadMutex.lock();
-	m_pTHandle = temp;
-	m_mThreadMutex.unlock();
-
-	if (m_bStopped)
+	if (!runThread(thread))
 		return;
-
-	try
-	{
-		m_pTHandle->start();
-		m_pTHandle->join();
-		safe_delete(m_pTHandle);
-	}
-	catch (gcException &)
-	{
-		safe_delete(m_pTHandle);
-		throw;
-	}
 }
 
 
@@ -492,28 +457,10 @@ void MCF::saveMCF_CandSFiles()
 	if (!m_sHeader)
 		throw gcException(ERR_SAVE_NOHEADER);
 
-	MCFCore::Thread::SMTController* temp = new MCFCore::Thread::SMTController(m_uiWCount, this);
-	temp->onProgressEvent +=delegate(&onProgressEvent);
-	temp->onErrorEvent += delegate(&onErrorEvent);
+	MCFCore::Thread::SMTController thread(m_uiWCount, this);
 
-	m_mThreadMutex.lock();
-	m_pTHandle = temp;
-	m_mThreadMutex.unlock();
-
-	if (m_bStopped)
+	if (!runThread(thread))
 		return;
-
-	try
-	{
-		m_pTHandle->start();
-		m_pTHandle->join();
-		safe_delete(m_pTHandle);
-	}
-	catch (gcException &)
-	{
-		safe_delete(m_pTHandle);
-		throw;
-	}
 
 #ifdef DEBUG
 	uint64 offset = getDLSize() + m_sHeader->getSize();
@@ -882,7 +829,34 @@ bool MCF::fixMD5AndCRC()
 
 void MCF::downloadAndInstall(const char* szSavePath)
 {
+	assert(!m_pTHandle);
 
+	if (m_bStopped)
+		return;
+
+	std::vector<std::shared_ptr<const MCFCore::Misc::DownloadProvider>> vProviders;
+	m_pDownloadProviders->getDownloadProviders(vProviders);
+
+	if (vProviders.empty())
+		throw gcException(ERR_ZEROFILE);
+
+	bool mcfExists = UTIL::FS::isValidFile(UTIL::FS::PathWithFile(getFile()));
+
+	//save the header first incase we fail
+	saveMCF_Header();
+
+	uint16 workerCount = (uint16)vProviders.size();
+
+	if (workerCount > 3)
+		workerCount = 3;
+
+	MCFCore::Thread::ComboDLINTController thread(m_pDownloadProviders, workerCount, this, mcfExists);
+	thread.onProviderEvent += delegate(&onProviderEvent);
+
+	if (!runThread(thread))
+		return;
+
+	saveMCF_Header();
 }
 
 

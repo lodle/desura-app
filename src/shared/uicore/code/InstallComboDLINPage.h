@@ -23,8 +23,8 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_INSTALLDLPAGE_H
-#define DESURA_INSTALLDLPAGE_H
+#ifndef DESURA_INSTALLCOMBODLINPAGE_H
+#define DESURA_INSTALLCOMBODLINPAGE_H
 #ifdef _WIN32
 #pragma once
 #endif
@@ -36,22 +36,20 @@ $/LicenseInfo$
 #include "usercore/GuiDownloadProvider.h"
 #include "mcfcore/DownloadProvider.h"
 
-
 namespace UI
 {
 	namespace Forms
 	{
 		namespace ItemFormPage
 		{
-
 			///////////////////////////////////////////////////////////////////////////////
-			/// Class InstallDLPage
+			/// Class InstallComboDLINPage
 			///////////////////////////////////////////////////////////////////////////////
-			class InstallDLPage : public InstallBannerPage
+			class InstallComboDLINPage : public InstallBannerPage
 			{
 			public:
-				InstallDLPage(wxWindow* parent);
-				~InstallDLPage();
+				InstallComboDLINPage(wxWindow* parent, std::function<void()> fnOnInstall);
+				~InstallComboDLINPage();
 
 				void init();
 
@@ -65,14 +63,15 @@ namespace UI
 
 
 			private:
+				std::function<void()> m_fnOnInstall;
+
 				gcButton* m_butPause;
 				gcButton* m_butHide;
 
 				bool m_bPaused = false;
-				bool m_bInit = false;
+				bool m_bDownloading = true;;
 				bool m_bError = false;
 			};
-
 		}
 	}
 }

@@ -33,8 +33,8 @@ $/LicenseInfo$
 
 #include <array>
 
-namespace MCFCore
-{
+using namespace MCFCore;
+
 
 void MCF::dlHeaderFromHttp(const char* url)
 {
@@ -111,25 +111,10 @@ void MCF::dlFilesFromHttp(const char* url, const char* installDir)
 	//save the header first incase we fail
 	saveMCF_Header();
 
-	MCFCore::Thread::HGTController *temp = new MCFCore::Thread::HGTController(url, this, installDir);
-	temp->onProgressEvent +=delegate(&onProgressEvent);
-	temp->onErrorEvent += delegate(&onErrorEvent);
+	MCFCore::Thread::HGTController thread(url, this, installDir);
 
-	m_pTHandle = temp;
-
-	try
-	{
-		m_pTHandle->start();
-		m_pTHandle->join();
-		safe_delete(m_pTHandle);
-	}
-	catch (gcException &)
-	{
-		safe_delete(m_pTHandle);
-		throw;
-	}
+	if (!runThread(thread))
+		return;
 
 	saveMCF_Header();
-}
-
 }

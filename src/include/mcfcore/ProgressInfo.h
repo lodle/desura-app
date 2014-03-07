@@ -38,7 +38,7 @@ typedef struct
 	uint8 percent;
 } MCFProg_s;
 
-typedef union 
+typedef union
 {
 	uint64 value;
 	MCFProg_s prog;
@@ -46,95 +46,94 @@ typedef union
 
 namespace MCFCore
 {
-//! Namespace for all utillity classes used by MCFCore. Needed to be named misc instead of utill due to namespace class with util libraries
-namespace Misc
-{
-
-//! This class holds progress information for MCF processes
-//! and is used in the progress events
-//!
-class ProgressInfo
-{
-public:
-	enum
+	//! Namespace for all utility classes used by MCFCore. 
+	//! Needed to be named misc instead of util due to namespace class with util libraries
+	namespace Misc
 	{
-		FLAG_NONE,			//!< No flags
-		FLAG_INITFINISHED,	//!< Setup stage is finished
-		FLAG_FINALIZING,	//!< Onto final stage
-	};
 
-	ProgressInfo()
-	{
-		min = 0;
-		hour = 0;
-		rate = 0;
-		percent = 0;
-		flag = 0;
-		doneAmmount = 0;
-		totalAmmount = 0;
-	}
-
-	ProgressInfo(ProgressInfo* i)
-	{
-		min = 0;
-		hour = 0;
-		rate = 0;
-		percent = 0;
-		flag = 0;
-		doneAmmount = 0;
-		totalAmmount = 0;
-
-		if (i)
+		//! This class holds progress information for MCF processes
+		//! and is used in the progress events
+		//!
+		class ProgressInfo
 		{
-			min = i->min;
-			hour= i->hour;
-			rate= i->rate;
-			percent = i->percent;
-			flag = i->flag;
-			doneAmmount = i->doneAmmount;
-			totalAmmount = i->totalAmmount;
-		}
+		public:
+			enum
+			{
+				FLAG_NONE,			//!< No flags
+				FLAG_INITFINISHED,	//!< Setup stage is finished
+				FLAG_FINALIZING,	//!< Onto final stage
+			};
+
+			ProgressInfo()
+			{
+				min = 0;
+				hour = 0;
+				rate = 0;
+				percent = 0;
+				flag = 0;
+				doneAmmount = 0;
+				totalAmmount = 0;
+			}
+
+			ProgressInfo(ProgressInfo* i)
+			{
+				min = 0;
+				hour = 0;
+				rate = 0;
+				percent = 0;
+				flag = 0;
+				doneAmmount = 0;
+				totalAmmount = 0;
+
+				if (i)
+				{
+					min = i->min;
+					hour = i->hour;
+					rate = i->rate;
+					percent = i->percent;
+					flag = i->flag;
+					doneAmmount = i->doneAmmount;
+					totalAmmount = i->totalAmmount;
+				}
+			}
+
+			//for ipc communication
+			ProgressInfo(uint64 prog)
+			{
+				Prog_u u;
+				u.value = prog;
+
+				min = u.prog.min;
+				hour = u.prog.hour;
+				rate = u.prog.rate;
+				percent = u.prog.percent;
+				flag = u.prog.flag;
+				doneAmmount = 0;
+				totalAmmount = 0;
+			}
+
+			uint64 toInt64()
+			{
+				Prog_u u;
+
+				u.prog.min = min;
+				u.prog.hour = hour;
+				u.prog.rate = rate;
+				u.prog.percent = percent;
+				u.prog.flag = flag;
+
+				return u.value;
+			}
+
+			uint64 doneAmmount;
+			uint64 totalAmmount;
+			uint32 rate;
+			uint8 flag;
+			uint8 hour;
+			uint8 min;
+			uint8 percent;
+		};
 	}
-
-	//for ipc communication
-	ProgressInfo(uint64 prog)
-	{
-		Prog_u u;
-		u.value = prog;
-
-		min = u.prog.min;
-		hour = u.prog.hour;
-		rate = u.prog.rate;
-		percent = u.prog.percent;
-		flag = u.prog.flag;
-		doneAmmount = 0;
-		totalAmmount = 0;
-	}
-
-	uint64 toInt64()
-	{
-		Prog_u u;
-
-		u.prog.min = min;
-		u.prog.hour = hour;
-		u.prog.rate = rate;
-		u.prog.percent = percent;
-		u.prog.flag = flag;
-
-		return u.value;
-	}
-
-	uint64 doneAmmount;
-	uint64 totalAmmount;
-	uint32 rate;
-	uint8 flag;
-	uint8 hour;
-	uint8 min;
-	uint8 percent;
-};
-
-
-}
 }
 
 #endif

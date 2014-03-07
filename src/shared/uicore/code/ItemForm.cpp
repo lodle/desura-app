@@ -39,6 +39,7 @@ $/LicenseInfo$
 
 #include "InstallDLToolPage.h"
 #include "InstallINToolPage.h"
+#include "InstallComboDLINPage.h"
 
 #include "ICheckFinishPage.h"
 #include "ICheckProgressPage.h"
@@ -743,6 +744,14 @@ void ItemForm::onStageChange(ITEM_STAGE &stage)
 	{
 		setTitle(L"#IF_WAIT_TITLE");
 		m_pPage = new ItemFormPage::InstallWaitPage(this);
+	}
+	else if (stage == ITEM_STAGE::STAGE_COMBO_DL_IN)
+	{
+		setTitle(L"#IF_DOWNLOAD");
+		m_pPage = new ItemFormPage::InstallComboDLINPage(this, [&]()
+		{
+			setTitle(L"#IF_INSTALL");
+		});
 	}
 	else
 	{

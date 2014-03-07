@@ -192,7 +192,7 @@ void WGTController::run()
 		if (!isStopped())
 		{
 			gcException newE(ERR_SOCKET, "All server connections failed. \n\n"
-								"Please check you are connected to the internet\n"
+								"Please check you are connected to the Internet\n"
 								"and try again or check console for more info.");
 			onErrorEvent(newE);
 		}

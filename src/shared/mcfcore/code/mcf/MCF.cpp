@@ -35,6 +35,8 @@ $/LicenseInfo$
 #include "XMLSaveAndCompress.h"
 #include "thread/MCFServerCon.h"
 
+#include "thread/BaseMCFThread.h"
+
 using namespace MCFCore;
 
 namespace 
@@ -71,9 +73,8 @@ MCF::MCF(std::shared_ptr<MCFCore::Misc::DownloadProvidersI> pDownloadProviders)
 
 MCF::~MCF()
 {
-	m_mThreadMutex.lock();
+	std::lock_guard<std::mutex> guard(m_mThreadMutex);
 	safe_delete(m_pTHandle);
-	m_mThreadMutex.unlock();
 }
 
 void MCF::disableCompression()
@@ -136,24 +137,20 @@ bool MCF::isPaused()
 
 void MCF::pause()
 {
-	m_mThreadMutex.lock();
+	std::lock_guard<std::mutex> guard(m_mThreadMutex);
 
 	if (m_pTHandle)
 		m_pTHandle->pause();
-
-	m_mThreadMutex.unlock();
 
 	m_bPaused = true;
 }
 
 void MCF::unpause()
 {
-	m_mThreadMutex.lock();
+	std::lock_guard<std::mutex> guard(m_mThreadMutex);
 
 	if (m_pTHandle)
 		m_pTHandle->unpause();
-
-	m_mThreadMutex.unlock();
 
 	m_bPaused = false;
 }
@@ -880,4 +877,48 @@ void MCF::setDownloadProvider(std::shared_ptr<MCFCore::Misc::DownloadProvidersI>
 		DesuraId id(header->getId(), header->getType());
 		m_pDownloadProviders->setInfo(id, header->getBranch(), header->getBuild());
 	}
+}
+
+bool MCF::runThread(MCFCore::Thread::BaseMCFThread &thread)
+{
+	if (m_bStopped)
+		return false;
+
+	{
+		std::lock_guard<std::mutex> guard(m_mThreadMutex);
+
+		if (m_pTHandle)
+		{
+			assert(false);
+			return false;
+		}
+
+		m_pTHandle = &thread;
+	}
+
+	thread.onProgressEvent += delegate(&onProgressEvent);
+	thread.onErrorEvent += delegate(&onErrorEvent);
+
+	auto cleanup = [&]()
+	{
+		thread.onProgressEvent -= delegate(&onProgressEvent);
+		thread.onErrorEvent -= delegate(&onErrorEvent);
+
+		std::lock_guard<std::mutex> guard(m_mThreadMutex);
+		m_pTHandle = nullptr;
+	};
+
+	try
+	{
+		thread.start();
+		thread.join();
+	}
+	catch (gcException &)
+	{
+		cleanup();
+		throw;
+	}
+
+	cleanup();
+	return true;
 }
