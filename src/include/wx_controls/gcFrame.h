@@ -29,6 +29,7 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#include "wx_any_fix.h"
 #include <wx/frame.h>
 #include "guiDelegate.h"
 #include "gcManagers.h"

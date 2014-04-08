@@ -29,6 +29,8 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#include "wx_any_fix.h"
+
 #include "gcButton.h"
 #include "gcCheckBox.h"
 #include "gcChoice.h"

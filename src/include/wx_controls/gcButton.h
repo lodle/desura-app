@@ -29,7 +29,7 @@ $/LicenseInfo$
 #pragma once
 #endif
 
-
+#include "wx_any_fix.h"
 #include <wx/button.h>
 
 #include "gcImageHandle.h"

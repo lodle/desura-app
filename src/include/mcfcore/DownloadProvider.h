@@ -135,6 +135,8 @@ namespace Misc
 				m_tExpireTime = gcTime() + std::chrono::seconds(ttl);
 		}
 
+		virtual ~DownloadProvider(){}
+
 		//! Checks to see if its a valid banner
 		//! 
 		//! @return True if valid, False if not

@@ -25,7 +25,16 @@ $/LicenseInfo$
 
 #include "Common.h"
 #include "cef_desura_includes/ChromiumBrowserI.h"
+
+#ifdef new
+#undef new
+#endif
+
 #include "v8.h"
+
+#if defined(WIN32) && defined(DEBUG)
+#define new DEBUG_NEW
+#endif
 
 #include <vector>
 

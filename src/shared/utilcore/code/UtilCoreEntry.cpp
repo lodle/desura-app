@@ -26,6 +26,7 @@ $/LicenseInfo$
 #include "common.h"
 #include "UICoreI.h"
 
+#include "wx_any_fix.h"
 #include <wx/wx.h>
 #include <wx/snglinst.h>
 #include <wx/evtloop.h>

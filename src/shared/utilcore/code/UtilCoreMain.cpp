@@ -25,6 +25,7 @@ $/LicenseInfo$
 
 #include "Common.h"
 
+#include "wx_any_fix.h"
 #include <wx/wx.h>
 #include <wx/dir.h>
 #include <wx/stdpaths.h>

@@ -23,20 +23,12 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_GCRADIOBUTTON_H
-#define DESURA_GCRADIOBUTTON_H
-#ifdef _WIN32
-#pragma once
+#ifdef new
+#undef new
 #endif
 
-#include "wx_any_fix.h"
-#include <wx/wx.h>
+#include <wx/any.h>
 
-//! Desura themed radio buttons
-class gcRadioButton : public wxRadioButton
-{
-public:
-	gcRadioButton(wxWindow* parent, int id=wxID_ANY, wxString label = wxString(""), const wxPoint& pos = wxDefaultPosition, const wxSize size = wxDefaultSize);
-};
-
-#endif //DESURA_GCRADIOBUTTON_H
+#if defined(WIN32) && defined(DEBUG)
+#define new DEBUG_NEW
+#endif

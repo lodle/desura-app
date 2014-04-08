@@ -29,6 +29,7 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#include "wx_any_fix.h"
 #include <wx/wx.h>
 
 //! A text control styled in the Desura theme

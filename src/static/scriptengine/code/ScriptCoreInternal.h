@@ -30,7 +30,15 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#ifdef new
+#undef new
+#endif
+
 #include "v8.h"
+
+#if defined(WIN32) && defined(DEBUG)
+#define new DEBUG_NEW
+#endif
 
 class ScriptCoreInternal
 {

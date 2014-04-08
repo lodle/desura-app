@@ -27,7 +27,16 @@ $/LicenseInfo$
 #include <branding/scriptcore_version.h>
 
 #include "LogBones.cpp"
+
+#ifdef new
+#undef new
+#endif
+
 #include "v8.h"
+
+#if defined(WIN32) && defined(DEBUG)
+#define new DEBUG_NEW
+#endif
 
 #include "ScriptCoreI.h"
 #include "ScriptTaskThread.h"

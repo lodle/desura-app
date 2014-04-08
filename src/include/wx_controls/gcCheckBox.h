@@ -30,6 +30,7 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#include "wx_any_fix.h"
 #include <wx/checkbox.h>
 
 //! Check box with desura theme

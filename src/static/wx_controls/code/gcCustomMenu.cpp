@@ -24,6 +24,8 @@ $/LicenseInfo$
 */
 
 #include "Common.h"
+
+#include "wx_any_fix.h"
 #include <wx/wx.h>
 
 #include "gcCustomMenu.h"

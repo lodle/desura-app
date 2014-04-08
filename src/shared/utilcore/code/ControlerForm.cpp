@@ -26,6 +26,7 @@ $/LicenseInfo$
 #include "Common.h"
 #include "ControlerForm.h"
 
+#include "wx_any_fix.h"
 #include <wx/snglinst.h>
 
 #include "usercore\UserCoreI.h"

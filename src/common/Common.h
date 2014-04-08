@@ -573,3 +573,11 @@ inline void DoAssert(const char* szExp, const char* szFile, int nLine)
 #ifdef LINK_WITH_GMOCK
 #include <gmock/gmock.h>
 #endif
+
+#if defined(WIN32) && defined(DEBUG)
+	#define _CRTDBG_MAP_ALLOC
+	#include <stdlib.h>
+	#include <crtdbg.h>
+	#define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
+	#define new DEBUG_NEW
+#endif

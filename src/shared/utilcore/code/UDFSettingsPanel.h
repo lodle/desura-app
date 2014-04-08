@@ -29,7 +29,7 @@ $/LicenseInfo$
 #pragma once
 #endif
 
-
+#include "wx_any_fix.h"
 #include <wx/string.h>
 #include <wx/stattext.h>
 #include <wx/gdicmn.h>

@@ -278,6 +278,8 @@ namespace UnitTest
 	class TestDownloadProvidersPM : public DownloadProvidersI
 	{
 	public:
+		virtual ~TestDownloadProvidersPM(){}
+
 		bool getDownloadProviders(std::vector<std::shared_ptr<const DownloadProvider>> &vDownloadProviders) override
 		{
 			vDownloadProviders = m_vDownloadProviders;

@@ -30,6 +30,7 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#include "wx_any_fix.h"
 #include <wx/choice.h>
 
 //! Choice box with desura theme

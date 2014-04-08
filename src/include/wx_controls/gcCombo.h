@@ -23,13 +23,13 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-
 #ifndef DESURA_GCCOMBO_H
 #define DESURA_GCCOMBO_H
 #ifdef _WIN32
 #pragma once
 #endif
 
+#include "wx_any_fix.h"
 #include <wx/wx.h>
 
 //! Combo box with desura theme

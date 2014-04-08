@@ -29,9 +29,9 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#include "wx_any_fix.h"
 #include <wx/wx.h>
 #include <wx/control.h>
-
 #include "gcProgressBar.h"
 
 //! Progress bar for uploads that show an orange part for currently uploading section and blue bar for done

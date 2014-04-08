@@ -26,6 +26,7 @@ $/LicenseInfo$
 #include "Common.h"
 #include "gcGrid.h"
 
+#include "wx_any_fix.h"
 #include <wx/tooltip.h>
 
 gcGrid::gcGrid( wxWindow *parent,wxWindowID id, const wxPoint& pos, const wxSize& size, long style, const wxString& name ) : wxGrid(parent, id, pos, size, style, name)

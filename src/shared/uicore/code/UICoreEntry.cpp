@@ -97,6 +97,46 @@ static void gcAssertHandler(const wxString &file, int line, const wxString &func
 	Warning(gcString("wxAssert: {0} {1} [{2}:{3}]\n", cond.c_str(), msg.c_str(), func.c_str(), line));
 }
 
+
+#if defined(WIN32) && defined(DEBUG)
+
+class CrtMemLeak
+{
+public:
+	void start()
+	{
+		_CrtMemCheckpoint(&m_MemState);
+	}
+
+	void stop()
+	{
+		_CrtMemState stateNow, stateDiff;
+		_CrtMemCheckpoint(&stateNow);
+
+		_CrtMemDifference(&stateDiff, &m_MemState, &stateNow);
+		_CrtMemDumpAllObjectsSince(&stateDiff);
+	}
+
+	_CrtMemState m_MemState;
+};
+
+#else
+
+class CrtMemLeak
+{
+public:
+	void start()
+	{
+	}
+
+	void stop()
+	{
+	}
+};
+
+
+#endif
+
 class UICore : public UICoreI
 {
 public:
@@ -142,9 +182,13 @@ public:
 		Safe::strcpy(&m_szAppVersion, version, 255);
 	}
 
+	CrtMemLeak m_MemLeak;
+
 #ifdef WIN32
 	bool initWxWidgets(HINSTANCE hInst, int CmdShow, int argc, char** argv)
 	{
+		m_MemLeak.start();
+
 		hIISHook = SetWindowsHookEx(WH_CALLWNDPROC, (HOOKPROC)CallWndProc, 0, GetCurrentThreadId());
 
 		wxSetInstance(hInst);
@@ -177,6 +221,9 @@ public:
 
 		if (m_bExitCodeSet)
 			*result = m_iExitCode;
+
+		wxUninitialize();
+		m_MemLeak.stop();
 	}
 
 #ifdef WIN32

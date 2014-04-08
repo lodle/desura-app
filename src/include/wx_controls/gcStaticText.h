@@ -29,6 +29,7 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#include "wx_any_fix.h"
 #include <wx/stattext.h>
 #include "gcFlickerFreePaint.h"
 

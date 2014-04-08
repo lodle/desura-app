@@ -29,7 +29,9 @@ $/LicenseInfo$
 #pragma once
 #endif
 
+#include "wx_any_fix.h"
 #include <wx/wx.h>
+
 #include "Event.h"
 #include "util_thread/BaseThread.h"
 

@@ -186,6 +186,10 @@ bool InitWebControl()
 	return true;
 }
 
+
+std::vector<ChromiumDLL::JavaScriptExtenderI*> *g_vJSExtenderList = nullptr;
+std::vector<ChromiumDLL::SchemeExtenderI*> *g_vSchemeList = nullptr;
+
 void ShutdownWebControl()
 {
 	g_bLoaded = false;
@@ -203,6 +207,16 @@ void ShutdownWebControl()
 
 	g_pChromiumController = nullptr;
 	g_CEFDll.unload();
+
+	for (auto e : *g_vJSExtenderList)
+		e->destroy();
+
+	safe_delete(g_vJSExtenderList);
+
+	for (auto e : *g_vSchemeList)
+		e->destroy();
+
+	safe_delete(g_vSchemeList);
 }
 
 static std::mutex g_RootUrlMutex;
@@ -285,10 +299,6 @@ ChromiumDLL::ChromiumBrowserI* NewChromiumBrowser(int* hwnd, const char* name, c
 	return g_pChromiumController->NewChromiumBrowser((int*)hwnd, name, loadUrl);
 }
 
-
-
-std::vector<ChromiumDLL::JavaScriptExtenderI*> *g_vJSExtenderList=nullptr;
-
 void RegisterJSExtender( ChromiumDLL::JavaScriptExtenderI* scheme )
 {
 	if (!g_vJSExtenderList)
@@ -304,14 +314,7 @@ void RegisterJSBindings()
 
 	for (size_t x=0; x<g_vJSExtenderList->size(); x++)
 		g_pChromiumController->RegisterJSExtender((*g_vJSExtenderList)[x]);
-	
-	g_vJSExtenderList->clear();
-	safe_delete(g_vJSExtenderList);
 }
-
-
-
-std::vector<ChromiumDLL::SchemeExtenderI*> *g_vSchemeList = nullptr;
 
 void RegisterScheme( ChromiumDLL::SchemeExtenderI* scheme )
 {
@@ -328,9 +331,6 @@ void RegisterSchemes()
 
 	for (size_t x=0; x<g_vSchemeList->size(); x++)
 		g_pChromiumController->RegisterSchemeExtender((*g_vSchemeList)[x]);
-	
-	g_vSchemeList->clear();
-	safe_delete(g_vSchemeList);
 }
 
 void BrowserUICallback(ChromiumDLL::CallbackI* callback)

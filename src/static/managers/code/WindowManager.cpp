@@ -25,7 +25,16 @@ $/LicenseInfo$
 
 #include "Common.h"
 #include "WindowManager.h"
+
+#ifdef new
+#undef new
+#endif
+
 #include <wx/wx.h>
+
+#if defined(WIN32) && defined(DEBUG)
+#define new DEBUG_NEW
+#endif
 
 namespace Managers
 {
