@@ -55,7 +55,7 @@ HINSTANCE g_hInstDLL;
 
 void CustomSigAbort(int nSig)
 {
-	assert(false);
+	gcAssert(false);
 	throw std::exception("sig abort");
 }
 
@@ -235,9 +235,9 @@ public:
 		m_pOldTraits = oldTraits;
 	}
 
-	virtual bool ShowAssertDialog(const wxString &msg) override
+    virtual bool ShowAssertDialog(const wxString &msg) override
 	{
-		Warning(gcString("wx Assert: {0}\n", msg.mb_str()));
+		Warning("wx gcAssert: {0}\n", msg.mb_str());
 		return true;
 	}
 
@@ -475,7 +475,7 @@ public:
 		SetExitOnFrameDelete(true);
 
 #ifdef WIN32
-		if (UTIL::WIN::getOSId() == WINDOWS_7)
+		if (UTIL::WIN::getOSId() >= WINDOWS_7)
 		{
 			m_wmTBC = RegisterWindowMessage(L"TaskbarButtonCreated");
 			wxWindow::MSWRegisterMessageHandler(m_wmTBC, &HandleTaskBarMsg);
@@ -494,7 +494,7 @@ public:
 
 		if (bLanguageTest)
 		{
-			ma->m_iMode = MODE_OFFLINE;
+			ma->m_iMode = APP_MODE::MODE_OFFLINE;
 			cc_languagetest();
 			return false;
 		}
@@ -532,7 +532,7 @@ public:
 #ifdef WIN32
 		safe_delete(m_pServer);
 
-		if (UTIL::WIN::getOSId() == WINDOWS_7)
+		if (UTIL::WIN::getOSId() >= WINDOWS_7)
 		{
 			wxWindow::MSWUnregisterMessageHandler(m_wmTBC, &HandleTaskBarMsg);
 
@@ -562,7 +562,6 @@ public:
 
 	virtual void OnAssert(const wxChar *file, int line, const wxChar *cond, const wxChar *msg) override
 	{
-		Warning(gcString("Assert: {0} [{1}] in file {2}: {3}\n", msg, cond, file, line));
 	}
 
 #ifdef NIX
@@ -582,17 +581,17 @@ public:
 		}
 		catch (const gcException &e)
 		{
-			assert(false);
+			gcAssert(false);
 			Warning("OnExceptionInMainLoop gcException: {0}\n", e.what());
 		}
 		catch (const std::exception &e)
 		{
-			assert(false);
+			gcAssert(false);
 			Warning("OnExceptionInMainLoop std::exception: {0}\n", e.what());
 		}
 		catch (...)
 		{
-			assert(false);
+			gcAssert(false);
 			Warning("OnExceptionInMainLoop Unknown exception\n");
 		}
 		

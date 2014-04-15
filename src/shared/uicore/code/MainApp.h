@@ -33,6 +33,7 @@ $/LicenseInfo$
 #include "webcore/WebCoreI.h"
 #include "usercore/UserCoreI.h"
 #include "usercore/UploadInfoThreadI.h"
+#include "LinkArgs.h"
 
 class gcMessageDialog;
 
@@ -47,21 +48,14 @@ const char* GetAppVersion();
 const char* GetUserCoreVersion();
 const char* GetWebCoreVersion();
 
-typedef struct
+class ut
 {
+public:
 	gcString path;
 	DesuraId id;
 	wxWindow *caller;
-} ut;
-
-enum
-{
-	MODE_UNINT = 0,		//not yet setup
-	MODE_ONLINE,		//normal client
-	MODE_ONLINE_MIN,	//small client
-	MODE_OFFLINE,		//offline client
-	MODE_LOGOUT,		//logged out (no client)
 };
+
 
 class LoginForm;
 class wxOnAppUpdateEvent;
@@ -81,19 +75,37 @@ namespace UserCore
 	}
 }
 
+namespace UnitTest
+{
+	class MainAppFixture;
+}
+
 class InternalLinkInfo
 {
 public:
 	DesuraId id;
 	uint8 action;
-	std::vector<std::string> args;
+	LinkArgs args;
 };
 
 class InternalLink;
 class TaskBarIcon;
 class gcUnitTestForm;
 
-class MainApp :  public MainAppI, public MainAppProviderI
+class MainAppNoUI
+{
+public:
+	friend class UnitTest::MainAppFixture;
+
+	void onGiftUpdate(std::vector<UserCore::Misc::NewsItem*>& itemList);
+
+	EventV onNotifyGiftUpdateEvent;
+
+	std::mutex m_NewsLock;
+	std::vector<std::shared_ptr<UserCore::Misc::NewsItem>> m_vGiftItems;
+};
+
+class MainApp : public MainAppI, public MainAppProviderI, protected MainAppNoUI
 {
 public:
 	MainApp();
@@ -117,8 +129,8 @@ public:
 	bool isOffline();
 	bool isLoggedIn();
 
-	void handleInternalLink(const char* link);
-	void handleInternalLink(DesuraId id, uint8 action, std::vector<std::string> args);
+	void handleInternalLink(const char* link) override;
+	void handleInternalLink(DesuraId id, uint8 action, const LinkArgs& args) override;
 
 	void closeMainForm();
 	void closeForm(int32 id);
@@ -155,7 +167,7 @@ protected:
 	void changeAccountState(DesuraId id);
 
 	void loadUrl(const char* url, PAGE page);
-	void showProfile(DesuraId id, std::vector<std::string> args = std::vector<std::string>());
+	void showProfile(DesuraId id, const LinkArgs &args = LinkArgs());
 	void showDevProfile(DesuraId id);
 	void showDevPage(DesuraId id);
 	void showNews();
@@ -165,7 +177,7 @@ protected:
 	void getSteamUser(WCSpecialInfo *info, wxWindow *parent);
 
 	void onNewsUpdate(std::vector<UserCore::Misc::NewsItem*>& itemList);
-	void onGiftUpdate(std::vector<UserCore::Misc::NewsItem*>& itemList);
+	
 	void onNeedCvar(UserCore::Misc::CVar_s& info);
 
 	void onAppUpdateProg(uint32& prog);
@@ -192,35 +204,32 @@ protected:
 	Event<InternalLinkInfo> onInternalLinkEvent;
 	Event<gcString> onInternalLinkStrEvent;
 
-	EventV onNotifyGiftUpdateEvent;
 
 private:
 	friend class Desura;
 
-	gcMessageDialog *m_pOfflineDialog;
+	gcMessageDialog *m_pOfflineDialog = nullptr;
 
-	std::vector<UserCore::Misc::NewsItem*> m_vNewsItems;
-	std::vector<UserCore::Misc::NewsItem*> m_vGiftItems;
+	std::vector<std::shared_ptr<UserCore::Misc::NewsItem>> m_vNewsItems;
 
-	UserCore::Thread::UserThreadI* m_pDumpThread;
+	UserCore::Thread::UserThreadI* m_pDumpThread = nullptr;
 
-	bool m_bQuiteMode;
-	bool m_bLoggedIn;
-	uint8 m_iMode;
+	bool m_bQuiteMode = false;
+	bool m_bLoggedIn = false;
+	APP_MODE m_iMode = APP_MODE::MODE_LOGOUT;
 
 	gcString m_strServiceProvider;
 	gcString m_szDesuraCache;
 
 #ifdef WITH_GTEST
-	gcUnitTestForm* m_UnitTestForm;
+	gcUnitTestForm* m_UnitTestForm = nullptr;
 #endif
 
-	LoginForm* m_wxLoginForm;
-	MainForm* m_wxMainForm;
-	TaskBarIcon* m_wxTBIcon; 
+	LoginForm* m_wxLoginForm = nullptr;
+	MainForm* m_wxMainForm = nullptr;
+	TaskBarIcon* m_wxTBIcon = nullptr;
 
-	InternalLink *m_pInternalLink;
-	std::mutex m_NewsLock;
+	InternalLink *m_pInternalLink = nullptr;
 
 	std::mutex m_UserLock;
 

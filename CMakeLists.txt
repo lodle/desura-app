@@ -8,6 +8,8 @@
 #   BUILD_CEF       ON                  Build cef
 #   BUILD_TESTS     ON                  Build various unit tests
 #   WITH_GTEST      ON                  Add GTest support
+#	WITH_GMOCK		ON					Add GMock support (note: WITH_GTEST must be on)
+#	WITH_CODESIGN	OFF					Check code sign on dlls/exe (WIN32 Only)
 #   BUILD_TOOLS     ON                  Build various Desura tools
 #   OFFICIAL_BUILD  OFF                 for official build only
 #   BRANDING        depends on          which branding should be used?
@@ -17,6 +19,7 @@
 #   PACKAGE_TYPE    DEB                 Which packages should be created with "make package"
 #   FORCE_SYS_DEPS  OFF                 Force the use of system libs
 #   WITH_FLASH      ON                  Build with flash support
+#   WITH_TRACING	ON (WIN32)			Build with tracing support
 #
 #   BREAKPAD_URL                        URL to breakdpad archive, should be rev. 850
 #   CEF_URL                             URL to cef archive, should be rev. 291
@@ -76,7 +79,7 @@
 # some overrides
 ###############################################################################
 
-# TODO: silent output for externel dependencies
+# TODO: silent output for external dependencies
 project(Desura)
 
 if(APPLE) 
@@ -190,6 +193,15 @@ if(NOT BUILD_ONLY_CEF)
     find_package(GTest 1.7 ${REQUIRED_IF_OPTION})
     add_definitions(-DGTEST_LINKED_AS_SHARED_LIBRARY -DWITH_GTEST)
   endif()
+  
+  if(WITH_GTEST AND WITH_GMOCK)
+    find_package(GMock 1.7 ${REQUIRED_IF_OPTION})
+    add_definitions(-DGMOCK_LINKED_AS_SHARED_LIBRARY -DWITH_GMOCK) 
+  endif()
+
+  if (WITH_TRACING)
+    add_definitions(-DWITH_TRACING)
+  endif()
 endif()
 
 find_package(PythonInterp REQUIRED)
@@ -242,6 +254,7 @@ SetupDownloadUrl(CHROMIUM "chromium-15.0.876.0.tar.bz2" 22c8e1db4d1c4b474c600dff
 SetupDownloadUrl(CURL "curl-7.32.0.tar.bz2" 30d04b0a8c43c6770039d1bf033dfe79)
 SetupDownloadUrl(DEPOT_TOOLS "depot_tools-r1.zip" a27266b8d2388c4dc51645d1159dd0de)
 SetupDownloadUrl(GTEST "gtest-1.7.0.zip" 2d6ec8ccdf5c46b05ba54a9fd1d130d7)
+SetupDownloadUrl(GMOCK "gmock-1.7.0.zip" 073b984d8798ea1594f5e44d85b20d66)
 SetupDownloadUrl(V8 "v8-3.18.5.14.tar.bz2" 657802ea63c89190fd510ee1a2a719bf)
 SetupDownloadUrl(WXWIDGET "wxWidgets-3.0.0.tar.bz2" 241998efc12205172ed24c18788ea2cd)
 
@@ -270,6 +283,10 @@ if(NOT BUILD_ONLY_CEF)
     include(BuildGTest)
   endif()
 
+  if(NOT GMOCK_FOUND AND WITH_GTEST AND WITH_GMOCK)
+    include(BuildGMock)
+  endif() 
+  
   include(Buildv8)
   
   if(WIN32)

@@ -39,10 +39,7 @@ enum
 	BALLON_GAMEUPDATE,
 };
 
-bool sortGifts(UserCore::Misc::NewsItem* left, UserCore::Misc::NewsItem* right) 
-{ 
-	return strcmp(left->szTitle.c_str(), right->szTitle.c_str()) > 0;
-}
+
 
 bool sortItems(UserCore::Item::ItemInfoI* left, UserCore::Item::ItemInfoI* right) 
 { 
@@ -131,13 +128,17 @@ void TaskBarIcon::doBallonMsg()
 	}
 }
 
-void TaskBarIcon::showGiftPopup(std::vector<UserCore::Misc::NewsItem*>& itemList)
+void TaskBarIcon::showGiftPopup(const std::vector<std::shared_ptr<UserCore::Misc::NewsItem>>& itemList)
 {
 	gcWString msg;
 
-	std::sort(itemList.begin(), itemList.end(), sortGifts);
+	std::vector<std::shared_ptr<UserCore::Misc::NewsItem>> vLocal(itemList);
+	std::sort(vLocal.begin(), vLocal.end(), [](std::shared_ptr<UserCore::Misc::NewsItem> a, std::shared_ptr<UserCore::Misc::NewsItem> b)
+	{
+		return strcmp(a->szTitle.c_str(), b->szTitle.c_str()) > 0;
+	});
 
-	for (auto i : itemList)
+	for (auto i : vLocal)
 	{
 		if (i->hasBeenShown)
 			continue;
@@ -250,42 +251,36 @@ void TaskBarIcon::tagItems()
 	if (!GetUserCore())
 		return;
 
+	auto updateDelegate = [this](UserCore::Item::ItemInfoI* game)
+	{
+		const uint32 hasFlags = UserCore::Item::ItemInfoI::STATUS_DELETED;
+		const uint32 notFlags = UserCore::Item::ItemInfoI::STATUS_ONACCOUNT | UserCore::Item::ItemInfoI::STATUS_ONCOMPUTER | UserCore::Item::ItemInfoI::STATUS_DEVELOPER;
+
+		*game->getInfoChangeEvent() -= guiDelegate(this, &TaskBarIcon::onItemChanged);
+
+		if (HasAnyFlags(game->getStatus(), hasFlags))
+			return;
+
+		if (!HasAnyFlags(game->getStatus(), notFlags))
+			return;
+
+		*game->getInfoChangeEvent() += guiDelegate(this, &TaskBarIcon::onItemChanged);
+	};
+
 	std::vector<UserCore::Item::ItemInfoI*> gList;
 	GetUserCore()->getItemManager()->getGameList(gList, true);
 
-	for (size_t x=0; x<gList.size(); x++)
+	for (auto game : gList)
 	{
-		UserCore::Item::ItemInfoI* game = gList[x];
+		updateDelegate(game);
 
-		if (game->getStatus() & UserCore::Item::ItemInfoI::STATUS_DELETED || (!(game->getStatus() & (UserCore::Item::ItemInfoI::STATUS_ONACCOUNT|UserCore::Item::ItemInfoI::STATUS_ONCOMPUTER)) && (game->getStatus() & UserCore::Item::ItemInfoI::STATUS_DEVELOPER)))
-		{
-			*game->getInfoChangeEvent() -= guiDelegate(this, &TaskBarIcon::onItemChanged);
-			continue;
-		}
-
-		if (!(game->getStatus() & (UserCore::Item::ItemInfoI::STATUS_ONACCOUNT|UserCore::Item::ItemInfoI::STATUS_ONCOMPUTER)))
-			continue;
-
-		*game->getInfoChangeEvent() += guiDelegate(this, &TaskBarIcon::onItemChanged);
-
-#ifdef WIN32
+#ifndef UI_HIDE_MODS
 		std::vector<UserCore::Item::ItemInfoI*> mList;
 		GetUserCore()->getItemManager()->getModList(game->getId(), mList, true);
 
-		for (size_t y=0; y<mList.size(); y++)
+		for (auto mod : mList)
 		{
-			UserCore::Item::ItemInfoI* mod = mList[y];
-
-			if (mod->getStatus() & UserCore::Item::ItemInfoI::STATUS_DELETED || (!(mod->getStatus() & (UserCore::Item::ItemInfoI::STATUS_ONACCOUNT|UserCore::Item::ItemInfoI::STATUS_ONCOMPUTER)) && (mod->getStatus() & UserCore::Item::ItemInfoI::STATUS_DEVELOPER)))
-			{
-				*mod->getInfoChangeEvent() -= guiDelegate(this, &TaskBarIcon::onItemChanged);
-				continue;
-			}
-
-			if (!(mod->getStatus() & (UserCore::Item::ItemInfoI::STATUS_ONACCOUNT|UserCore::Item::ItemInfoI::STATUS_ONCOMPUTER)))
-				continue;
-
-			*mod->getInfoChangeEvent() += guiDelegate(this, &TaskBarIcon::onItemChanged);
+			updateDelegate(mod);
 		}
 #endif
 	}

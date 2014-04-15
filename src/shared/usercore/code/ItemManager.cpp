@@ -111,7 +111,7 @@ ItemManager::ItemManager(User* user) : BaseManager(true)
 		}
 		catch (std::exception &e)
 		{
-			Warning(gcString("Failed to migrate old Item Info DB: {0}", e.what()));
+			Warning("Failed to migrate old Item Info DB: {0}", e.what());
 		}
 
 		UTIL::FS::delFile(oldPath);
@@ -582,6 +582,7 @@ void ItemManager::getNewItems(std::vector<UserCore::Item::ItemInfoI*> &rList)
 
 void ItemManager::removeItem(DesuraId id)
 {
+	gcTrace("ItemId {0}", id);
 	UserCore::Item::ItemInfo* item = findItemInfoNorm(id);
 
 	if (!item)
@@ -597,21 +598,10 @@ void ItemManager::removeItem(DesuraId id)
 	if (mList.size() > 0)
 		return;
 
-	//make sure this flag is dead. Long live the flag
-	item->delSFlag(UM::ItemInfoI::STATUS_LINK);
+	//we add a flag instead of deleting the item to save headaches arising from other areas 
+	//caching the pointer to this item. Thus they can check the flag before doing work
+	item->softDelete();
 
-	if (item->getStatus() & UM::ItemInfoI::STATUS_DEVELOPER)
-	{
-		item->delSFlag(UM::ItemInfoI::STATUS_INSTALLED|UM::ItemInfoI::STATUS_ONACCOUNT|UM::ItemInfoI::STATUS_ONCOMPUTER|UM::ItemInfoI::STATUS_READY);
-	}
-	else
-	{
-		//we add a flag instead of deleting the item to save headachs arising from other areas 
-		//caching the pointer to this item. Thus they can check the flag before doing work
-		item->addSFlag(UM::ItemInfoI::STATUS_DELETED);
-	}
-
-	item->resetInstalledMcf();
 #ifdef WIN32
 	m_pUser->getGameExplorerManager()->removeItem(id);
 #endif
@@ -625,12 +615,15 @@ void ItemManager::removeItem(DesuraId id)
 
 void ItemManager::retrieveItemInfoAsync(DesuraId id, bool addToAccount)
 {
+	gcTrace("ItemId {0}", id);
 	m_pUser->m_pThreadPool->queueTask(new UserCore::Task::GatherInfoTask(m_pUser, id, addToAccount));
 }
 
 void ItemManager::retrieveItemInfo(DesuraId id, uint32 statusOveride, WildcardManager* pWildCard, MCFBranch mcfBranch, MCFBuild mcfBuild, bool reset)
 {
-	assert(m_pUser->m_pWebCore);
+	gcTrace("ItemId {0}", id);
+
+	gcAssert(m_pUser->m_pWebCore);
 
 	XML::gcXMLDocument doc;
 	m_pUser->m_pWebCore->getItemInfo(id, doc, mcfBranch, mcfBuild);
@@ -667,6 +660,8 @@ void ItemManager::retrieveItemInfo(DesuraId id, uint32 statusOveride, WildcardMa
 		pi.rootNode = gamesNode;
 
 		parseGamesXml(pi);
+
+		m_pUser->getToolManager()->parseXml(uNode.FirstChildElement("toolinfo"));
 	}
 	else
 	{
@@ -677,13 +672,13 @@ void ItemManager::retrieveItemInfo(DesuraId id, uint32 statusOveride, WildcardMa
 
 		uNode.FirstChildElement("platforms").for_each_child("platform", [&](const XML::gcXMLElement &platform)
 		{
-			if (!m_pUser->platformFilter(platform, PlatformType::PT_Tool))
+			if (!m_pUser->platformFilter(platform, PlatformType::Tool))
 				m_pUser->getToolManager()->parseXml(platform.FirstChildElement("toolinfo"));
 
 			platform.GetAtt("id", pi.platform);
 			parseKnownBranches(platform.FirstChildElement("games"));
 
-			if (m_pUser->platformFilter(platform, PlatformType::PT_Item))
+			if (m_pUser->platformFilter(platform, PlatformType::Item))
 				return;
 
 			pi.rootNode = platform.FirstChildElement("games");
@@ -841,7 +836,7 @@ void ItemManager::loadDbItems()
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to load items from db: {0}\n", e.what()));
+		Warning("Failed to load items from db: {0}\n", e.what());
 	}
 
 	loadFavList();
@@ -875,7 +870,7 @@ void ItemManager::saveDbItems(bool fullSave)
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to save items to db: {0}\n", e.what()));
+		Warning("Failed to save items to db: {0}\n", e.what());
 	}
 }
 
@@ -903,7 +898,7 @@ void ItemManager::itemsNeedUpdate2(const XML::gcXMLElement &platformsNode)
 
 	platformsNode.for_each_child("platform", [this](const XML::gcXMLElement &platform)
 	{
-		if (!m_pUser->platformFilter(platform, PlatformType::PT_Item))
+		if (!m_pUser->platformFilter(platform, PlatformType::Item))
 		{
 			parseItemUpdateXml("mod", platform);
 			parseItemUpdateXml("game", platform);
@@ -1000,6 +995,7 @@ void ItemManager::generateInfoMaps(const XML::gcXMLElement &gamesNode, InfoMaps*
 
 UserCore::Item::ItemInfo* ItemManager::createNewItem(DesuraId pid, DesuraId id, ParseInfo& pi)
 {
+	gcTrace("ItemId {0}", id);
 	UserCore::Item::ItemInfo* temp = new UserCore::Item::ItemInfo(m_pUser, id, pid);
 	UserCore::Item::ItemHandle* handle = new UserCore::Item::ItemHandle(temp, m_pUser);
 
@@ -1018,7 +1014,7 @@ UserCore::Item::ItemInfo* ItemManager::createNewItem(DesuraId pid, DesuraId id, 
 	}
 	catch (gcException &except)
 	{
-		Warning(gcString("Parse XML failed on item with error: {0}\n", except));
+		Warning("Parse XML failed on item with error: {0}\n", except);
 		safe_delete(temp);
 	}
 
@@ -1035,7 +1031,7 @@ void ItemManager::updateItem(UserCore::Item::ItemInfo* itemInfo, ParseInfo& pi)
 	itemInfo->loadXmlData(pi.platform, pi.rootNode, newSO, pi.pWildCard, pi.reset);
 	itemInfo->processUpdateXml(pi.rootNode);
 
-	itemInfo->delSFlag(UM::ItemInfoI::STATUS_STUB);
+	itemInfo->delSFlag(UM::ItemInfoI::STATUS_STUB|UM::ItemInfoI::STATUS_DELETED);
 
 	m_pUser->getToolManager()->findJSTools(itemInfo);
 }
@@ -1080,7 +1076,7 @@ void ItemManager::parseLoginXml2(const XML::gcXMLElement &gamesNode, const XML::
 		platform.GetAtt("id", pi.platform);
 		pi.rootNode = platform.FirstChildElement("games");
 
-		if (!m_pUser->platformFilter(platform, PlatformType::PT_Item))
+		if (!m_pUser->platformFilter(platform, PlatformType::Item))
 			parseGamesXml(pi);
 
 		parseKnownBranches(platform.FirstChildElement("games"));
@@ -1258,6 +1254,7 @@ void ItemManager::parseModXml(UserCore::Item::ItemInfo* parent, DesuraId id, Par
 
 void ItemManager::setFavorite(DesuraId id, bool fav)
 {
+	gcTrace("ItemId {0}, Fav {1}", id, fav);
 	sqlite3x::sqlite3_connection db(getItemInfoDb(m_szAppPath.c_str()).c_str());
 
 	try
@@ -1655,7 +1652,7 @@ void ItemManager::saveItem(UserCore::Item::ItemInfoI* pItem)
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to save item to db: {0}\n", e.what()));
+		Warning("Failed to save item to db: {0}\n", e.what());
 	}
 }
 

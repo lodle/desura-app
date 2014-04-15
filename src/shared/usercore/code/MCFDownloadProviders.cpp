@@ -39,7 +39,7 @@ MCFDownloadProviders::MCFDownloadProviders(WebCore::WebCoreI* pWebCore, int nUse
 
 void MCFDownloadProviders::setInfo(DesuraId id, MCFBranch branch, MCFBuild build)
 {
-	assert(!m_bInit);
+	gcAssert(!m_bInit);
 
 	m_Id = id;
 	m_Build = build;
@@ -79,7 +79,7 @@ size_t MCFDownloadProviders::size()
 
 void MCFDownloadProviders::forceLoad(MCFCore::MCFI* pMcf)
 {
-	assert(pMcf);
+	gcAssert(pMcf);
 
 	{
 		std::lock_guard<std::mutex> guard(m_UpdateLock);
@@ -87,7 +87,7 @@ void MCFDownloadProviders::forceLoad(MCFCore::MCFI* pMcf)
 	}
 
 	auto header = pMcf->getHeader();
-	assert(header);
+	gcAssert(header);
 	
 	header->setBuild(m_Build);
 	header->setBranch(m_Branch);
@@ -171,6 +171,10 @@ void MCFDownloadProviders::processXml(XML::gcXMLDocument &doc)
 		Safe::snprintf(temp->authkey.data(), 10, "%d", m_nUserId);
 
 		m_DownloadAuth = temp;
+
+		bool bAuthed = true;
+		if (mNode.GetChild("authed", bAuthed))
+			m_bUnAuthed = !bAuthed;
 	}
 
 	auto urlNode = mNode.FirstChildElement("urls");
@@ -201,4 +205,9 @@ void MCFDownloadProviders::processXml(XML::gcXMLDocument &doc)
 		m_nFirstCount = m_vDownloadProviders.size();
 
 	m_bInit = true;
+}
+
+bool MCFDownloadProviders::isUnAuthed() const
+{
+	return m_bUnAuthed;
 }

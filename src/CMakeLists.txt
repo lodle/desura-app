@@ -128,6 +128,11 @@ option(BUILD_TOOLS "Build various Desura tools." ON)
 
 if(BUILD_TOOLS)
   add_subdirectory(tools/mcf_util)
+  
+  if(WIN32)
+    add_subdirectory(tools/java_launcher)
+  endif()
+  
 endif()
 
 ###############################################################################
@@ -226,8 +231,4 @@ endif()
 if(NOT V8_FOUND)
   add_dependencies(scriptcore v8)
   add_dependencies(scriptengine v8)
-endif()
-
-if(NOT GTEST_FOUND AND WITH_GTEST)
-  add_dependencies(uicore gtest)
 endif()

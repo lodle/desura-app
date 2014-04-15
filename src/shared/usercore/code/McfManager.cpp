@@ -41,58 +41,41 @@ $/LicenseInfo$
 
 #define MCF_DB "mcfstoreb.sqlite"
 
-enum
+namespace
 {
-	FLAG_NONE = 0,
-	FLAG_PATCH,
-	FLAG_UNAUTHED,
-};
+	enum
+	{
+		FLAG_NONE = 0,
+		FLAG_PATCH,
+		FLAG_UNAUTHED,
+	};
 
+	bool McfInfoSort ( mcfInfo* elem1, mcfInfo* elem2 )
+	{
+		if (!elem1)
+			return false;
 
+		if (!elem2)
+			return true;
 
-
-
-bool McfInfoSort ( mcfInfo* elem1, mcfInfo* elem2 )
-{
-	if (!elem1)
-		return false;
-
-	if (!elem2)
-		return true;
-
-   return elem1->version > elem2->version;
+	   return elem1->version > elem2->version;
+	}
 }
-
-
-
-
-
-
 
 namespace UserCore
 {
-
-MCFManager* g_pMCFManager = nullptr;
-
-void InitMCFManager(const char* appDataPath, const char* mcfDataPath)
-{
-	g_pMCFManager = new MCFManager(appDataPath, mcfDataPath);
-	g_pMCFManager->init();
+	class MigrateInfo
+	{
+	public:
+		DesuraId id;
+		MCFBuild build;
+		MCFBranch branch;
+		gcString path;
+		gcString newPath;
+	};
 }
 
-void DelMCFManager()
-{
-	safe_delete(g_pMCFManager);
-}
-
-MCFManager* GetMCFManager()
-{
-	return g_pMCFManager;
-}
-
-
-
-
+using namespace UserCore;
 
 MCFManager::MCFManager(const char* appDataPath, const char* mcfDataPath)
 	: m_szAppDataPath(appDataPath)
@@ -105,16 +88,6 @@ void MCFManager::init()
 	createMcfDbTables(m_szAppDataPath.c_str());
 	migrateOldFiles();
 }
-
-class MigrateInfo
-{
-public:
-	DesuraId id;
-	MCFBuild build;
-	MCFBranch branch;
-	gcString path;
-	gcString newPath;
-};
 
 void MCFManager::getListOfBadMcfPaths(const gcString &szItemDb, std::vector<MigrateInfo> &delList, std::vector<MigrateInfo> &updateList)
 {
@@ -241,7 +214,7 @@ void MCFManager::createMcfDbTables(const char* dataPath)
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to create mcf item table: {0}\n", e.what()));
+		Warning("Failed to create mcf item table: {0}\n", e.what());
 	}
 
 	try
@@ -251,7 +224,7 @@ void MCFManager::createMcfDbTables(const char* dataPath)
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to create mcf backup table: {0}\n", e.what()));
+		Warning("Failed to create mcf backup table: {0}\n", e.what());
 	}
 }
 
@@ -356,7 +329,7 @@ gcString MCFManager::newMcfPath(DesuraId id, MCFBranch branch, MCFBuild build, b
 	catch (std::exception &e)
 	{
 		curPath = "";
-		Warning(gcString("Failed to insert mcf item: {0}\n", e.what()));
+		Warning("Failed to insert mcf item: {0}\n", e.what());
 	}
 
 	return curPath;
@@ -378,7 +351,7 @@ void MCFManager::delMcfPath(DesuraId id, MCFBranch branch, MCFBuild build)
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to delete mcf item: {0}\n", e.what()));
+		Warning("Failed to delete mcf item: {0}\n", e.what());
 	}
 }
 
@@ -412,7 +385,7 @@ void MCFManager::delAllMcfPath(DesuraId id)
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to delete mcf items: {0}\n", e.what()));
+		Warning("Failed to delete mcf items: {0}\n", e.what());
 	}
 }
 
@@ -431,7 +404,7 @@ void MCFManager::properDelMcfBackup(DesuraId gid, DesuraId mid)
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to delete mcf backup: {0}\n", e.what()));
+		Warning("Failed to delete mcf backup: {0}\n", e.what());
 	}
 }
 
@@ -502,7 +475,7 @@ gcString MCFManager::newMcfBackup(DesuraId gid, DesuraId mid)
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to update mcf backup: {0}\n", e.what()));
+		Warning("Failed to update mcf backup: {0}\n", e.what());
 	}
 
 	return parPath;
@@ -630,7 +603,7 @@ gcString MCFManager::getMcfSavePath()
 	return m_szMCFSavePath;
 }
 
-}
+
 
 #ifdef WITH_GTEST
 

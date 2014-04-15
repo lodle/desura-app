@@ -55,7 +55,8 @@ enum
 	T_UPDATEREMOVE,
 };
 
-ComplexLaunchServiceTask::ComplexLaunchServiceTask(UserCore::Item::ItemHandle *handle, bool clean, MCFBranch branch, MCFBuild build, UserCore::Item::Helper::InstallerHandleHelperI* ihh) : BaseItemServiceTask(UserCore::Item::ITEM_STAGE::STAGE_INSTALL_COMPLEX, "ComplexLaunch", handle, branch, build)
+ComplexLaunchServiceTask::ComplexLaunchServiceTask(UserCore::Item::ItemHandle *handle, bool clean, MCFBranch branch, MCFBuild build, UserCore::Item::Helper::InstallerHandleHelperI* ihh) 
+	: BaseItemServiceTask(UserCore::Item::ITEM_STAGE::STAGE_INSTALL_COMPLEX, "ComplexLaunch", handle, branch, build)
 {
 	m_pIPCIM = nullptr;
 	m_iTier = 0;
@@ -92,7 +93,8 @@ bool ComplexLaunchServiceTask::initService()
 	gcException eBadItem(ERR_BADITEM);
 	gcException eFailCrtInstSvc(ERR_NULLHANDLE, "Failed to create install mcf service!\n");
 	
-	UserCore::Item::ItemInfo *pItem = getItemInfo();
+	auto pItem = getItemInfo();
+
 	if (!pItem)
 	{
 		onErrorEvent(eBadItem);
@@ -106,7 +108,7 @@ bool ComplexLaunchServiceTask::initService()
 		return false;
 	}
 
-	pItem->setPercent(0);
+	pItem->getInternal()->setPercent(0);
 	pItem->delSFlag(UserCore::Item::ItemInfoI::STATUS_READY);
 	pItem->addSFlag(UserCore::Item::ItemInfoI::STATUS_INSTALLING);
 
@@ -122,45 +124,13 @@ bool ComplexLaunchServiceTask::initService()
 			onComplete();
 			return false;
 		}
+		else if (!m_bClean && !isFilesToRestore())
+		{
+			onComplete();
+			return false;
+		}
 		else
 		{
-			UserCore::MCFManager *mm = UserCore::GetMCFManager();
-			gcString backup = mm->getMcfBackup(pItem->getId(), pItem->getInstalledModId());
-
-			if (!m_bClean)
-			{
-
-				try
-				{
-					McfHandle mcfH;
-					mcfH->setFile(backup.c_str());
-					mcfH->parseMCF();
-
-
-					bool empty = true;
-					for (size_t x=0; x<mcfH->getFileCount(); x++)
-					{
-						MCFCore::MCFFileI* file = mcfH->getMCFFile(x);
-
-						if (file && file->isSaved())
-						{
-							empty = false;
-							break;
-						}
-					}
-
-					//if no conflict files, just launch
-					if (empty)
-					{
-						onComplete();
-						return false;
-					}
-				}
-				catch (gcException &)
-				{
-				}
-			}
-
 			//need to uninstall mod
 			m_iTier = T_REMOVEING;
 			m_iRemoveId = pItem->getInstalledModId();
@@ -169,7 +139,7 @@ bool ComplexLaunchServiceTask::initService()
 	}
 	else
 	{
-		UserCore::Item::ItemInfo *pParentItem = getParentItemInfo();
+		auto pParentItem = getParentItemInfo();
 		gcException eParentNull(ERR_BADITEM, "Parent was nullptr");
 
 		if (!pParentItem)
@@ -195,12 +165,44 @@ bool ComplexLaunchServiceTask::initService()
 	return false;
 }
 
+bool ComplexLaunchServiceTask::isFilesToRestore()
+{
+	bool filesToRestore = false;
+
+	try
+	{
+		auto pItem = getItemInfo();
+
+		UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
+		gcString backup = mm->getMcfBackup(pItem->getId(), pItem->getInstalledModId());
+
+		McfHandle mcfH;
+		mcfH->setFile(backup.c_str());
+		mcfH->parseMCF();
+
+		for (size_t x = 0; x<mcfH->getFileCount(); x++)
+		{
+			MCFCore::MCFFileI* file = mcfH->getMCFFile(x);
+
+			if (file && file->isSaved())
+			{
+				filesToRestore = true;
+				break;
+			}
+		}
+	}
+	catch (gcException &)
+	{
+	}
+
+	return filesToRestore;
+}
 
 bool ComplexLaunchServiceTask::install()
 {
 	m_iMode = BACKUP;
 
-	UserCore::MCFManager *mm = UserCore::GetMCFManager();
+	UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
 
 	gcString path = getFullMcf();
 
@@ -263,7 +265,7 @@ bool ComplexLaunchServiceTask::install()
 
 gcString ComplexLaunchServiceTask::getFullMcf()
 {
-	UserCore::MCFManager *mm = UserCore::GetMCFManager();
+	UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
 	
 	gcString path = mm->getMcfPath(getItemInfo());
 
@@ -287,8 +289,8 @@ gcString ComplexLaunchServiceTask::getFullMcf()
 
 bool ComplexLaunchServiceTask::remove()
 {
-	gcException eItemNull(ERR_NULLHANDLE, "Item that is ment to be removed for complex install is null.");
-	gcException eNoInstBrch(ERR_NULLHANDLE, "Item that is ment to be removed for complex install has no installed branches.");
+	gcException eItemNull(ERR_NULLHANDLE, "Item that is meant to be removed for complex install is null.");
+	gcException eNoInstBrch(ERR_NULLHANDLE, "Item that is meant to be removed for complex install has no installed branches.");
 	gcException eBadPath(ERR_BADPATH, "Mcf path was null or invalid.");
 
 	UserCore::Item::ItemInfoI *item = getUserCore()->getItemManager()->findItemInfo(m_iRemoveId);
@@ -306,7 +308,7 @@ bool ComplexLaunchServiceTask::remove()
 	}
 
 	m_iMode = REMOVING;
-	UserCore::MCFManager *mm = UserCore::GetMCFManager();
+	UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
 
 	MCFBuild build = item->getInstalledBuild();
 	MCFBranch branch = item->getCurrentBranch()->getBranchId();
@@ -382,15 +384,15 @@ void ComplexLaunchServiceTask::onTrueComplete()
 	if (m_bHashMissMatch && m_pIHH)
 		verify = m_pIHH->verifyAfterHashFail();
 
-	if (verify)
-		getItemHandle()->goToStageVerify(getItemInfo()->getInstalledBranch(), getItemInfo()->getInstalledBuild(), true, true, true);
-	else if (m_bCompleteStage)
-		getItemHandle()->completeStage(false);
-	else if (m_bLaunch)
-		getItemHandle()->goToStageLaunch();
-
-	uint32 com = m_bHashMissMatch?1:0;
+	uint32 com = m_bHashMissMatch ? 1 : 0;
 	onCompleteEvent(com);
+
+	if (verify)
+		getItemHandle()->getInternal()->goToStageVerify(getItemInfo()->getInstalledBranch(), getItemInfo()->getInstalledBuild(), true, true, true);
+	else if (m_bCompleteStage)
+		getItemHandle()->getInternal()->completeStage(false);
+	else if (m_bLaunch)
+		getItemHandle()->getInternal()->goToStageLaunch();
 }
 
 void ComplexLaunchServiceTask::completeRemove()
@@ -400,7 +402,7 @@ void ComplexLaunchServiceTask::completeRemove()
 	if (!item)
 		return;
 
-	UserCore::MCFManager *mm = UserCore::GetMCFManager();
+	UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
 	mm->delMcfBackup(item->getParentId(), m_iRemoveId);
 
 	getUserCore()->getItemManager()->setInstalledMod(item->getParentId(), DesuraId());
@@ -408,7 +410,7 @@ void ComplexLaunchServiceTask::completeRemove()
 
 void ComplexLaunchServiceTask::completeInstall()
 {
-	UserCore::Item::ItemInfo *pItem = getItemInfo();
+	auto pItem = getItemInfo();
 
 	if (pItem->isUpdating() && getMcfBuild() == pItem->getNextUpdateBuild())
 		pItem->updated();
@@ -427,18 +429,18 @@ void ComplexLaunchServiceTask::onError(gcException &e)
 		return;
 	}
 
-	Warning(gcString("Error in complex launch service: {0}\n", e));
-	getItemHandle()->setPausable(false);
+	Warning("Error in complex launch service: {0}\n", e);
+	getItemHandle()->getInternal()->setPausable(false);
 
 	if (!getItemHandle()->shouldPauseOnError())
 	{
 		getItemInfo()->delSFlag(UserCore::Item::ItemInfoI::STATUS_INSTALLING|UserCore::Item::ItemInfoI::STATUS_UPDATING|UserCore::Item::ItemInfoI::STATUS_DOWNLOADING);
-		getItemHandle()->resetStage(true);
+		getItemHandle()->getInternal()->resetStage(true);
 		onStop();
 	}
 	else
 	{
-		getItemHandle()->setPaused(true, true);
+		getItemHandle()->getInternal()->setPaused(true, true);
 	}
 
 	onErrorEvent(e);
@@ -492,7 +494,7 @@ void ComplexLaunchServiceTask::onProgress(MCFCore::Misc::ProgressInfo &p)
 	}
 
 	if (oFlag == 0)
-		getItemInfo()->setPercent(percent);
+		getItemInfo()->getInternal()->setPercent(percent);
 #ifdef WIN32
 	else
 		int a =1;

@@ -7,6 +7,7 @@ option(BUILD_ONLY_CEF "build only cef, this will disable desurium building" OFF)
 if(NOT BUILD_ONLY_CEF)
   option(BUILD_TESTS "Build various unit tests." ON)
   option(WITH_GTEST "Add GTest support" ON)
+  option(WITH_GMOCK "Add GMock support" ON)
   if(BUILD_TESTS OR WITH_GTEST)
     include(CTest)
     enable_testing()
@@ -50,6 +51,7 @@ if(NOT BUILD_ONLY_CEF)
   if(WIN32)
     option(DEBUG_CEF "turn on/off debugging in CEF" OFF)
     option(DEBUG_V8 "turn on/off debugging in v8" OFF)
+	option(WITH_CODESIGN "Check codesign on dll's and exe's" OFF)
   endif()
 
   ###############################################################################
@@ -57,6 +59,11 @@ if(NOT BUILD_ONLY_CEF)
   ###############################################################################
 
   option(WITH_FLASH "enable flash support" ON)
+  if (WIN32)
+    option(WITH_TRACING "enable tracing output" ON)
+  else()
+    option(WITH_TRACING "enable tracing output" OFF)
+  endif()
 endif()
 
 ###############################################################################

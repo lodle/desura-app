@@ -85,7 +85,8 @@ public:
 class ThemeColorInfo : public BaseItem
 {
 public:
-	ThemeColorInfo(const char* name) : BaseItem(name)
+	ThemeColorInfo(const char* name) 
+		: BaseItem(name)
 	{
 	}
 
@@ -144,7 +145,7 @@ public:
 		}
 		else
 		{
-			Warning(gcString("Cant find control {0} color {1}\n", control, id));
+			Warning("Cant find control {0} color {1}\n", control, id);
 			return Color();
 		}
 	}
@@ -161,7 +162,7 @@ typedef BaseManager<ThemeImageInfo> ImageList;
 typedef BaseManager<ThemeSpriteInfo> SpriteList;
 
 
-//! Repersents a theme file
+//! Represents a theme file
 //!
 class Theme : private ControlList, private ImageList, private SpriteList, private WebList
 {

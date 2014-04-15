@@ -32,6 +32,8 @@ $/LicenseInfo$
 #include "IPCClass.h"
 #include "IPCParameter.h"
 
+#include "ServiceMainI.h"
+
 class IPCUpdateApp;
 class IPCUninstallMcf;
 class IPCInstallMcf;
@@ -39,51 +41,48 @@ class IPCComplexLaunch;
 class IPCUninstallBranch;
 class ServiceMainThread;
 
-class IPCServiceMain : public IPC::IPCClass
+class IPCServiceMain : public IPC::IPCClass, public IPC::ServiceMainI
 {
 public:
 	IPCServiceMain(IPC::IPCManager* mang, uint32 id, DesuraId itemId);
 	~IPCServiceMain();
 
-	void warning(const char* msg);
-	void message(const char* msg);
-	void debug(const char* msg);
-
+	void message(int type, const char* msg, uint64 col, std::map<std::string, std::string> *mpArgs);
 	void updateRegKey(const char* key, const char* value);
 
 #ifdef DESURA_CLIENT
-	void updateBinaryRegKey(const char* key, const char* value, size_t size);
+	void updateBinaryRegKey(const char* key, const char* value, size_t size) override;
 #else
 	void updateBinaryRegKeyBlob(const char* key, IPC::PBlob blob);
 #endif
 
 #ifdef WIN32
-	void removeUninstallRegKey(uint64 id);
-	void setUninstallRegKey(uint64 id, uint64 installSize);
+	void removeUninstallRegKey(uint64 id) override;
+	void setUninstallRegKey(uint64 id, uint64 installSize) override;
 
-	void addDesuraToGameExplorer();
-	void addItemGameToGameExplorer(const char* name, const char* dllPath);
-	void removeGameFromGameExplorer(const char* dllPath, bool deleteDll = true);
+	void addDesuraToGameExplorer() override;
+	void addItemGameToGameExplorer(const char* name, const char* dllPath) override;
+	void removeGameFromGameExplorer(const char* dllPath, bool deleteDll = true) override;
 #endif
 
-	void updateShortCuts();
+	void updateShortCuts() override;
 
-	void runInstallScript(const char* file, const char* installPath, const char* function);
+	void runInstallScript(const char* file, const char* installPath, const char* function) override;
 	IPC::PBlob getSpecialPath(int32 key);
 
 #ifdef DESURA_CLIENT
-	IPCUpdateApp* newUpdateApp();
-	IPCUninstallMcf* newUninstallMcf();
-	IPCInstallMcf* newInstallMcf();
-	IPCComplexLaunch* newComplexLaunch();
-	IPCUninstallBranch* newUninstallBranch();
+	IPCUpdateApp* newUpdateApp() override;
+	IPCUninstallMcf* newUninstallMcf() override;
+	IPCInstallMcf* newInstallMcf() override;
+	IPCComplexLaunch* newComplexLaunch() override;
+	IPCUninstallBranch* newUninstallBranch() override;
 #endif
 
 	void setAppDataPath(const char* path);
 	void setCrashSettings(const char* user, bool upload);
 	void dispVersion();
 
-	void fixFolderPermissions(const char* dir);
+	void fixFolderPermissions(const char* dir) override;
 
 private:
 	void registerFunctions();

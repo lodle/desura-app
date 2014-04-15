@@ -442,7 +442,7 @@ void BranchInfo::processInstallScript(const XML::gcXMLElement &xmlElement)
 	}
 	catch (gcException &e)
 	{
-		Warning(gcString("Failed to save install script for {0} branch {1}: {2}\n", m_ItemId.toInt64(), m_uiBranchId, e));
+		Warning("Failed to save install script for {0} branch {1}: {2}\n", m_ItemId.toInt64(), m_uiBranchId, e);
 		m_szInstallScript = "";
 	}
 }
@@ -566,7 +566,7 @@ namespace UnitTest
 	TEST(BranchInfo, CDKeyPerUser)
 	{
 		StubBranchItemInfo2 bi;
-		BranchInstallInfo info(1, &bi);
+		BranchInstallInfo info(1, &bi, UTIL::FS::g_pDefaultUTILFS);
 
 		BranchInfo a(MCFBranch::BranchFromInt(1), DesuraId("2", "games"), &info, 0, 123);
 		BranchInfo b(MCFBranch::BranchFromInt(1), DesuraId("2", "games"), &info, 0, 123);

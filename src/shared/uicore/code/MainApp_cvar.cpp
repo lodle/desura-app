@@ -120,7 +120,7 @@ CONCOMMAND(cc_CheckCert, "checkcert")
 
 #ifndef DEBUG
 		if (res == TRUST_E_NOSIGNATURE)
-			Warning(gcString("Warning: {0}: {1}\n", modulesNames[x], msg));
+			WarningS("Warning: {0}: {1}\n", modulesNames[x], msg);
 		else
 #endif
 			Msg(gcString("{0}: {1}\n", modulesNames[x], msg));
@@ -133,7 +133,7 @@ CONCOMMAND(cc_PrintThreads, "threadlist")
 {
 	if (!GetThreadManager())
 	{
-		Warning("Cant print thread list as ThreadManager is nullptr.\n");
+		WarningS("Cant print thread list as ThreadManager is nullptr.\n");
 	}
 	else
 	{
@@ -151,7 +151,7 @@ CONCOMMAND(cc_testexception, "testexception")
 	}
 	catch(gcException &e)
 	{
-		Msg(gcString("{0}", e));
+		Msg("{0}", e);
 	}
 }
 
@@ -229,7 +229,8 @@ CONCOMMAND(cc_testinstallscript, "test_install_script")
 	else
 	{
 		Color c(0,0,255);
-		MsgCol(&c, gcString("Running install script {0},\n\t Install Path: {1}\n\tCalling function {2}\n", vArgList[1], vArgList[2], vArgList[3]));
+
+		LogMsg(MT_MSG, gcString("Running install script {0},\n\t Install Path: {1}\n\tCalling function {2}\n", vArgList[1], vArgList[2], vArgList[3]), &c);
 		GetUserCore()->runInstallScript(vArgList[1].c_str(), vArgList[2].c_str(), vArgList[3].c_str());
 	}
 }
@@ -273,7 +274,7 @@ bool OnQaTestingChange(CVar* var, const char* val)
 	return true;
 }
 
-CVar gc_qa_testing("gc_qa_testing", "0", CFLAG_USER, (CVarCallBackFn)&OnQaTestingChange);
+CVar gc_qa_testing("gc_qa_testing", "0", CFLAG_NOCALLBACKONLOAD, (CVarCallBackFn)&OnQaTestingChange);
 
 CONCOMMAND(cc_forcetestingupdate, "force_testing_update")
 {

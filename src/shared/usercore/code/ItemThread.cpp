@@ -85,7 +85,7 @@ void ItemThread::purge()
 
 void ItemThread::setThreadManager(UserCore::UserThreadManagerI* tm)
 {
-	assert(tm);
+	gcAssert(tm);
 	m_pThreadManager = tm;
 
 	if (m_pThreadManager)
@@ -160,6 +160,7 @@ bool ItemThread::performTask()
 		m_bRunningTask = true;
 		onTaskStartEvent(taskType);
 
+		gcTrace("Task {0}", task->getTaskName());
 		task->doTask();
 
 		onTaskCompleteEvent(taskType);

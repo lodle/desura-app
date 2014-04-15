@@ -30,40 +30,31 @@ $/LicenseInfo$
 
 
 
-namespace UserCore
-{
-namespace ItemTask
-{
+using namespace UserCore::ItemTask;
 
 
-DownloadToolTask::DownloadToolTask(UserCore::Item::ItemHandle* handle, uint32 ttid, const char* downloadPath, MCFBranch branch, MCFBuild build) : BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOADTOOL, "DownloadTool", handle, branch, build)
+DownloadToolTask::DownloadToolTask(UserCore::Item::ItemHandle* handle, uint32 ttid, const char* downloadPath, MCFBranch branch, MCFBuild build) 
+	: BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOADTOOL, "DownloadTool", handle, branch, build)
+	, m_szDownloadPath(downloadPath)
+	, m_ToolTTID(ttid)
 {
-	m_szDownloadPath = downloadPath;
-	m_ToolTTID = ttid;
-	m_bLaunch = false;
-	m_bInstallAfter = false;
-
-	m_bCancelled = false;
 }
 
-DownloadToolTask::DownloadToolTask(UserCore::Item::ItemHandle* handle, bool launch) : BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOADTOOL, "DownloadTool", handle, MCFBranch(), MCFBuild())
+DownloadToolTask::DownloadToolTask(UserCore::Item::ItemHandle* handle, bool launch, uint32 ttid) 
+	: BaseItemTask(UserCore::Item::ITEM_STAGE::STAGE_DOWNLOADTOOL, "DownloadTool", handle, MCFBranch(), MCFBuild())
+	, m_ToolTTID(ttid)
+	, m_bLaunch(launch)
 {
-	m_ToolTTID = UINT_MAX;
-	m_bLaunch = launch;
-	m_bInstallAfter = true;
-
-	m_bCancelled = false;
 }
 
 DownloadToolTask::~DownloadToolTask()
 {
-
 }
 
 void DownloadToolTask::doRun()
 {
 	uint32 per = 0;
-	getItemInfo()->setPercent(per);
+	getItemInfo()->getInternal()->setPercent(per);
 
 	if (m_ToolTTID == UINT_MAX)
 		validateTools();
@@ -71,12 +62,11 @@ void DownloadToolTask::doRun()
 	std::vector<DesuraId> toolList;
 	getItemInfo()->getCurrentBranch()->getToolList(toolList);
 
-	UserCore::Misc::ToolTransaction* tt = new UserCore::Misc::ToolTransaction();
+	UserCore::Misc::ToolTransaction* tt = new UserCore::Misc::ToolTransaction(std::move(toolList));
 
 	tt->onCompleteEvent += delegate(this, &DownloadToolTask::onDLComplete);
 	tt->onErrorEvent += delegate(this, &DownloadToolTask::onDLError);
 	tt->onProgressEvent += delegate(this, &DownloadToolTask::onDLProgress);
-	tt->toolsList = toolList;
 	
 	if (m_ToolTTID != UINT_MAX)
 	{
@@ -148,13 +138,13 @@ void DownloadToolTask::onDLProgress(UserCore::Misc::ToolProgress &p)
 	m.percent = p.percent;
 
 	onMcfProgressEvent(m);
-	getItemInfo()->setPercent(p.percent);
+	getItemInfo()->getInternal()->setPercent(p.percent);
 }
 
 void DownloadToolTask::onDLError(gcException &e)
 {
 	//Dont worry about errors here. We will sort them out on launch
-	Warning(gcString("Failed to download tool: {0}\n", e));
+	Warning("Failed to download tool: {0}\n", e);
 }
 
 void DownloadToolTask::onDLComplete()
@@ -181,26 +171,22 @@ void DownloadToolTask::onComplete()
 
 	if (notComplete)
 	{
-		getItemHandle()->completeStage(true);
+		getItemHandle()->getInternal()->completeStage(true);
 		return;
 	}
 
 	uint32 blank = 0;
 	onCompleteEvent(blank);
 
-	if (m_bInstallAfter)
+	if (HasAllFlags(getItemInfo()->getStatus(), UserCore::Item::ItemInfoI::STATUS_READY | UserCore::Item::ItemInfoI::STATUS_INSTALLED))
 	{
-		getItemHandle()->goToStageInstallTools(m_bLaunch);
+		getItemHandle()->getInternal()->goToStageInstallTools(m_bLaunch);
 	}
 	else
 	{
 		if (HasAllFlags(getItemInfo()->getStatus(), UserCore::Item::ItemInfoI::STATUS_INSTALLCOMPLEX))
-			getItemHandle()->goToStageInstallComplex(getMcfBranch(), getMcfBuild());
+			getItemHandle()->getInternal()->goToStageInstallComplex(getMcfBranch(), getMcfBuild());
 		else
-			getItemHandle()->goToStageInstall(m_szDownloadPath.c_str(), getMcfBranch());
+			getItemHandle()->getInternal()->goToStageInstall(m_szDownloadPath.c_str(), getMcfBranch());
 	}
-}
-
-
-}
 }

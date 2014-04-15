@@ -68,56 +68,6 @@ T* findForm( DesuraId id, std::vector<wxFrame*>& vSubForms )
 	}
 
 
-
-
-
-
-
-	
-Args::Args(std::vector<std::string> args)
-{
-	for (size_t x=0; x<args.size(); x++)
-	{
-		std::vector<std::string> out;
-		UTIL::STRING::tokenize(args[x], out, "&");
-
-		for (size_t y=0; y<out.size(); y++)
-		{
-			std::vector<std::string> out2;
-			UTIL::STRING::tokenize(out[y], out2, "=");
-
-			if (out2.size() == 2)
-			{
-				m_mArgMap[out2[0]] = out2[1];
-			}
-			else
-			{
-				m_mArgMap[out2[0]] = "";
-			}
-		}
-	}
-}
-
-bool Args::containsArg(std::string key)
-{
-	return (m_mArgMap.find(key) != m_mArgMap.end());
-}
-
-std::string Args::getArgValue(std::string key)
-{
-	if (containsArg(key))
-		return m_mArgMap[key];
-
-	return "";
-}
-
-
-
-
-
-
-
-
 InternalLink::InternalLink(wxWindow *parent)
 {
 	m_iNewsFormId = 0;
@@ -127,9 +77,7 @@ InternalLink::InternalLink(wxWindow *parent)
 
 InternalLink::~InternalLink()
 {
-
 }
-
 
 void InternalLink::regForm(DesuraId id, gcFrame *form)
 {
@@ -258,7 +206,7 @@ void InternalLink::handleInternalLink(const char* link)
 
 	if (badLink)
 	{
-		Warning(gcString("{0} [{1}]\n", Managers::GetString("#MF_BADLINK"), link));
+		Warning("{0} [{1}]\n", Managers::GetString("#MF_BADLINK"), link);
 
 		gcWString errMsg(L"{0}: {1}.", Managers::GetString("#MF_BADLINK"), link);
 		gcMessageBox(g_pMainApp->getMainWindow(), errMsg, Managers::GetString(L"#MF_ERRTITLE"));
@@ -270,7 +218,7 @@ bool InternalLink::switchTab(bool &badLink, std::vector<gcString> &list, const c
 {
 	if (list.size() < 2)
 	{
-		Warning(gcString("{0} [{1}]\n", Managers::GetString("#MF_BADLINK"), link));
+		Warning("{0} [{1}]\n", Managers::GetString("#MF_BADLINK"), link);
 		return false;
 	}
 
@@ -300,7 +248,7 @@ bool InternalLink::switchTab(bool &badLink, std::vector<gcString> &list, const c
 	}
 	else
 	{
-		Warning(gcString("{0} [{1}]\n", Managers::GetString("#MF_BADLINK"), link));
+		Warning("{0} [{1}]\n", Managers::GetString("#MF_BADLINK"), link);
 		return false;
 	}
 
@@ -360,7 +308,7 @@ bool InternalLink::processItemLink(bool &badLink, std::vector<gcString> &list, c
 
 		if (idAsNum.getItem() == 0)
 		{
-			Warning(gcString("Failed to resolve item name {0} for link {2}: {1}\n", list[2], e, link));
+			Warning("Failed to resolve item name {0} for link {2}: {1}\n", list[2], e, link);
 			gcErrorBox(form, Managers::GetString("#MF_ERRTITLE"), Managers::GetString("#MF_NAMERESOLVE"), e);
 
 			m_mWaitingItemFromMap.erase(m_mWaitingItemFromMap.find(key));
@@ -467,12 +415,12 @@ bool InternalLink::processItemLink(bool &badLink, std::vector<gcString> &list, c
 
 
 
-void InternalLink::handleInternalLink(DesuraId id, uint8 action, const std::vector<std::string> &argsList)
+void InternalLink::handleInternalLink(DesuraId id, uint8 action, const LinkArgs &a)
 {
 	if (g_pMainApp->isOffline() && action != ACTION_LAUNCH)
 		return;
 
-	Args args(argsList);
+	LinkArgs args(a);
 
 	bool handled = true;
 
@@ -514,7 +462,7 @@ void InternalLink::handleInternalLink(DesuraId id, uint8 action, const std::vect
 	case ACTION_CLEANCOMPLEXMOD: cleanComplexMod(id);				break;
 
 	default: 
-		Warning(gcString("Unknown internal link {0} for item {1}\n.", (uint32)action, id.toInt64()));	
+		Warning("Unknown internal link {0} for item {1}\n.", (uint32)action, id.toInt64());	
 		break;
 	}
 }
@@ -664,17 +612,15 @@ public:
 	DesuraId m_Id;
 };
 
-void InternalLink::showPrompt(DesuraId id, Args args)
+void InternalLink::showPrompt(DesuraId id, LinkArgs args)
 {
 	std::string prompt = args.getArgValue("prompt");
 	UserCore::Item::ItemInfoI* item = GetUserCore()->getItemManager()->findItemInfo( id );
 
 	if (prompt == "update")
 	{
-		std::vector<std::string> a;
-		a.push_back("reminder=true");
-
-		showUpdateForm(id, Args(a));
+		args.push_back("reminder=true");
+		showUpdateForm(id, args);
 	}
 	else if (prompt == "launch")
 	{
@@ -745,12 +691,12 @@ void InternalLink::showPreorderPrompt(DesuraId id, bool isPreload)
 	gcMessageBox(g_pMainApp->getMainWindow(), msg, title, wxICON_EXCLAMATION|wxCLOSE, &pobh);
 }
 
-UI::Forms::ItemForm* InternalLink::showItemForm(DesuraId id, UI::Forms::INSTALL_ACTION action, bool showForm)
+UI::Forms::ItemForm* InternalLink::showItemForm(DesuraId id, UI::Forms::INSTALL_ACTION action, bool showForm, LinkArgs args)
 {
-	return showItemForm(id, action, MCFBranch(), MCFBuild(), showForm);
+	return showItemForm(id, action, MCFBranch(), MCFBuild(), showForm, args);
 }
 
-UI::Forms::ItemForm* InternalLink::showItemForm(DesuraId id, UI::Forms::INSTALL_ACTION action, MCFBranch branch, MCFBuild build, bool showForm)
+UI::Forms::ItemForm* InternalLink::showItemForm(DesuraId id, UI::Forms::INSTALL_ACTION action, MCFBranch branch, MCFBuild build, bool showForm, LinkArgs args)
 {
 	UserCore::Item::ItemInfoI* item = GetUserCore()->getItemManager()->findItemInfo( id );
 
@@ -766,7 +712,10 @@ UI::Forms::ItemForm* InternalLink::showItemForm(DesuraId id, UI::Forms::INSTALL_
 		regForm(id, form);
 	}
 
+	form->pushArgs(args);
 	form->newAction(action, branch, build, showForm);
+	form->popArgs();
+
 	return form;
 }
 
@@ -776,17 +725,17 @@ void InternalLink::installCheck(DesuraId id)
 	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_INSTALL_CHECK);
 
 	if (!form)
-		Warning(gcString("Cant find item (or item not ready) for install check [{0}].\n", id.toInt64()));
+		Warning("Cant find item (or item not ready) for install check [{0}].\n", id.toInt64());
 }
 
-void InternalLink::verifyItem(DesuraId id, Args args)
+void InternalLink::verifyItem(DesuraId id, LinkArgs args)
 {
 	bool showForm = args.getArgValue("show") != "false";
 
 	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_VERIFY, showForm);
 
 	if (!form)
-		Warning(gcString("Cant find item (or item not ready) for verify [{0}].\n", id.toInt64()));
+		Warning("Cant find item (or item not ready) for verify [{0}].\n", id.toInt64());
 	else if (showForm == false)
 		form->Show(false);
 }
@@ -796,7 +745,7 @@ void InternalLink::cleanComplexMod(DesuraId id)
 	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_CLEANCOMPLEX, true);
 
 	if (!form)
-		Warning(gcString("Cant find item (or item not ready) for clean complex mod [{0}].\n", id.toInt64()));
+		Warning("Cant find item (or item not ready) for clean complex mod [{0}].\n", id.toInt64());
 }
 
 bool InternalLink::checkForPreorder(DesuraId id)
@@ -819,7 +768,7 @@ bool InternalLink::checkForPreorder(DesuraId id)
 	return false;
 }
 
-void InternalLink::installItem(DesuraId id, Args args)
+void InternalLink::installItem(DesuraId id, LinkArgs args)
 {
 	std::string branch = args.getArgValue("branch");
 	std::string global = args.getArgValue("global");
@@ -847,7 +796,7 @@ void InternalLink::installItem(DesuraId id, Args args)
 	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_INSTALL, iBranch);
 
 	if (!form)
-		Warning(gcString("Cant find item (or item not ready) for install [{0}].\n", id.toInt64()));	
+		Warning("Cant find item (or item not ready) for install [{0}].\n", id.toInt64());	
 }
 
 DesuraId g_GameDiskList[] = 
@@ -857,7 +806,7 @@ DesuraId g_GameDiskList[] =
 	DesuraId()
 };
 
-void InternalLink::launchItem(DesuraId id, Args args)
+void InternalLink::launchItem(DesuraId id, LinkArgs args)
 {
 	bool cdKeyArg = args.containsArg("cdkey");
 	bool noUpdateArg = args.containsArg("noupdate");
@@ -873,11 +822,10 @@ void InternalLink::launchItem(DesuraId id, Args args)
 		return;
 
 	UserCore::Item::ItemInfoI* item = GetUserCore()->getItemManager()->findItemInfo(id);
-	bool delFlag=false;
 
 	if (!item || !item->isLaunchable())
 	{
-		installItem(id, Args());
+		installItem(id, LinkArgs());
 		return;
 	}
 
@@ -929,33 +877,27 @@ void InternalLink::launchItem(DesuraId id, Args args)
 		return;
 	}
 
-	if (noUpdateArg && !HasAnyFlags(item->getOptions(), UserCore::Item::ItemInfoI::OPTION_NOTREMINDUPDATE))
-	{
-		item->addOFlag(UserCore::Item::ItemInfoI::OPTION_NOTREMINDUPDATE);
-		delFlag = true;
-	}
+	if (noUpdateArg)
+		item->addOFlag(UserCore::Item::ItemInfoI::OPTION_NOTREMINDUPDATE_ONETIME);
 
-	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_LAUNCH);
+	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_LAUNCH, true, args);
 
 	if (!form)
-		Warning(gcString("Cant find item (or item not ready) for launch [{0}].\n", id.toInt64()));
-
-	if (item && delFlag)
-		item->delOFlag(UserCore::Item::ItemInfoI::OPTION_NOTREMINDUPDATE);
+		Warning("Cant find item (or item not ready) for launch [{0}].\n", id.toInt64());
 }
 
-void InternalLink::updateItem(DesuraId id, Args args)
+void InternalLink::updateItem(DesuraId id, LinkArgs args)
 {
 	bool show = args.containsArg("show") && args.getArgValue("show") == "true";
 
 	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_UPDATE, show);
 
 	if (!form)
-		Warning(gcString("Cant find item (or item not ready) for update [{0}].\n", id.toInt64()));
+		Warning("Cant find item (or item not ready) for update [{0}].\n", id.toInt64());
 }
 
 
-void InternalLink::installTestMCF(DesuraId id, Args args)
+void InternalLink::installTestMCF(DesuraId id, LinkArgs args)
 {
 	std::string branch = args.getArgValue("branch");
 	std::string build = args.getArgValue("build");
@@ -972,7 +914,7 @@ void InternalLink::installTestMCF(DesuraId id, Args args)
 	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_INSTALL_TESTMCF, iBranch, iBuild);
 
 	if (!form)
-		Warning(gcString("Cant find item (or item not ready) for install test mcf [{0}].\n", id.toInt64()));
+		Warning("Cant find item (or item not ready) for install test mcf [{0}].\n", id.toInt64());
 }
 
 
@@ -981,13 +923,13 @@ void InternalLink::uninstallMCF(DesuraId id)
 	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_UNINSTALL);
 
 	if (!form)
-		Warning(gcString("Cant find item (or item not ready) for uninstall [{0}].\n", id.toInt64()));
+		Warning("Cant find item (or item not ready) for uninstall [{0}].\n", id.toInt64());
 
 	form->Raise();
 }
 
 
-void InternalLink::switchBranch(DesuraId id, Args args)
+void InternalLink::switchBranch(DesuraId id, LinkArgs args)
 {
 	std::string branch = args.getArgValue("branch");
 
@@ -1002,7 +944,7 @@ void InternalLink::switchBranch(DesuraId id, Args args)
 	UI::Forms::ItemForm* form = showItemForm(id, UI::Forms::INSTALL_ACTION::IA_SWITCH_BRANCH, iBranch);
 
 	if (!form)
-		Warning(gcString("Cant find item (or item not ready) for uninstall [{0}].\n", id.toInt64()));
+		Warning("Cant find item (or item not ready) for uninstall [{0}].\n", id.toInt64());
 }
 
 
@@ -1059,7 +1001,7 @@ void InternalLink::showExeSelect(DesuraId id, bool hasSeenCDKey)
 
 	if (!item)
 	{
-		Warning(gcString("Cant find item for show exe select [{0}].\n", id.toInt64()));
+		Warning("Cant find item for show exe select [{0}].\n", id.toInt64());
 		return;
 	}
 
@@ -1070,7 +1012,7 @@ void InternalLink::showExeSelect(DesuraId id, bool hasSeenCDKey)
 	form->Show(true);
 }
 
-void InternalLink::showCDKey(DesuraId id, Args args)
+void InternalLink::showCDKey(DesuraId id, LinkArgs args)
 {
 	FINDFORM(id, CDKeyForm);
 
@@ -1078,7 +1020,7 @@ void InternalLink::showCDKey(DesuraId id, Args args)
 
 	if (!item)
 	{
-		Warning(gcString("Cant find item for show cd key [{0}].\n", id.toInt64()));
+		Warning("Cant find item for show cd key [{0}].\n", id.toInt64());
 		return;
 	}
 
@@ -1101,7 +1043,7 @@ void InternalLink::showGameDisk(DesuraId id, const char* exe, bool cdkey)
 
 	if (!item)
 	{
-		Warning(gcString("Cant find item for show game disk [{0}].\n", id.toInt64()));
+		Warning("Cant find item for show game disk [{0}].\n", id.toInt64());
 		return;
 	}
 
@@ -1112,7 +1054,7 @@ void InternalLink::showGameDisk(DesuraId id, const char* exe, bool cdkey)
 	form->Show(true);
 }
 
-void InternalLink::showUpdateForm(DesuraId id, Args args)
+void InternalLink::showUpdateForm(DesuraId id, LinkArgs args)
 {
 	UserCore::Item::ItemInfoI* item = GetUserCore()->getItemManager()->findItemInfo( id );
 
@@ -1128,7 +1070,7 @@ void InternalLink::showUpdateForm(DesuraId id, Args args)
 	UpdateInfoForm* form = new UpdateInfoForm(m_pParent);
 	regForm(id, form);
 
-	form->setInfo(id, reminder == "true");
+	form->setInfo(id, reminder == "true", args);
 	form->Show(true);
 }
 
@@ -1154,7 +1096,7 @@ void InternalLink::setPauseItem(DesuraId id, bool state)
 	if (itemHandle)
 	  itemHandle->setPaused(state);
 	else if (state == false)
-		launchItem(id, Args()); //if we paused and restarted desura we wont have a valid install form
+		launchItem(id, LinkArgs()); //if we paused and restarted desura we wont have a valid install form
 }
 
 void InternalLink::installedWizard()
@@ -1176,7 +1118,7 @@ void InternalLink::installedWizard()
 	m_vSubForms.push_back(form);
 }
 
-void InternalLink::showSettings(Args &args)
+void InternalLink::showSettings(LinkArgs &args)
 {
 	gcString c(GetGCThemeManager()->getWebPage("settings"));
 
@@ -1218,7 +1160,7 @@ void InternalLink::uploadMCF(DesuraId id)
 }
 
 
-void InternalLink::resumeUploadMCF(DesuraId id, Args args)
+void InternalLink::resumeUploadMCF(DesuraId id, LinkArgs args)
 {
 	std::string key = args.getArgValue("key");
 	std::string uid = args.getArgValue("uid");
@@ -1373,7 +1315,7 @@ void InternalLink::showUpdateLogApp(uint32 version)
 
 
 
-void InternalLink::showNews(std::vector<UserCore::Misc::NewsItem*> &newsItems, std::vector<UserCore::Misc::NewsItem*> &giftItems)
+void InternalLink::showNews(const std::vector<std::shared_ptr<UserCore::Misc::NewsItem>> &newsItems, const std::vector<std::shared_ptr<UserCore::Misc::NewsItem>> &giftItems)
 {
 	if (newsItems.size() > 0)
 	{

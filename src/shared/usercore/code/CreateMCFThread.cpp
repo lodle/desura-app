@@ -31,6 +31,8 @@ $/LicenseInfo$
 #include "util/gcTime.h"
 #include "MCFDownloadProviders.h"
 
+#include "User.h"
+
 namespace UserCore
 {
 namespace Thread
@@ -149,7 +151,7 @@ void CreateMCFThread::compareBranches(std::vector<UserCore::Item::BranchInfo*> &
 		}
 		catch (gcException &except)
 		{
-			Warning(gcString("CreateMCF: Failed to get download providers for mcf: {0}\n", except));
+			Warning("CreateMCF: Failed to get download providers for mcf: {0}\n", except);
 			continue;
 		}
 
@@ -161,7 +163,7 @@ void CreateMCFThread::compareBranches(std::vector<UserCore::Item::BranchInfo*> &
 			}
 			catch (gcException &except)
 			{
-				Warning(gcString("CreateMCF: Failed to get dlHeaderFromWeb for mcf: {0}\n", except));
+				Warning("CreateMCF: Failed to get dlHeaderFromWeb for mcf: {0}\n", except);
 				continue;
 			}
 
@@ -203,7 +205,7 @@ void CreateMCFThread::createMcf()
 
 	gcString file("NewMcf_b{0}_{1}.mcf", branch, timeStr);
 
-	UserCore::MCFManager *mm = GetMCFManager();
+	UserCore::MCFManagerI *mm = getUserCore()->getInternal()->getMCFManager();
 	m_szFilePath = gcString("{0}{1}{2}", mm->getMcfSavePath(), DIRS_STR, getItemId().getFolderPathExtension(file.c_str()));
 
 

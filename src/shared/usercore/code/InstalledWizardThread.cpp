@@ -45,7 +45,6 @@ namespace Thread
 
 InstalledWizardThread::InstalledWizardThread() : MCFThread( "Installed Wizard Thread" )
 {
-	m_pUser = dynamic_cast<UserCore::User*>(getUserCore());
 	m_bTriggerNewEvent = true;
 	m_pTaskGroup = nullptr;
 
@@ -115,7 +114,7 @@ void InstalledWizardThread::doRun()
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to update cip item list: {0}\n", e.what()));
+		Warning("Failed to update cip item list: {0}\n", e.what());
 	}
 
 
@@ -157,7 +156,7 @@ void InstalledWizardThread::onGameFound(UserCore::Misc::InstallInfo &game)
 		}
 		catch (gcException &except)
 		{
-			Warning(gcString("Installed wizard had an error in checking games: {0}\n", except));
+			Warning("Installed wizard had an error in checking games: {0}\n", except);
 		}
 	}
 }
@@ -197,7 +196,7 @@ void InstalledWizardThread::onModFound(UserCore::Misc::InstallInfo &mod)
 		}
 		catch (gcException &except)
 		{
-			Warning(gcString("Installed wizard had an error in checking mods: {0}\n", except));
+			Warning("Installed wizard had an error in checking mods: {0}\n", except);
 		}
 	}
 }
@@ -262,7 +261,7 @@ void InstalledWizardThread::parseItemsQuick(const XML::gcXMLElement &fNode)
 	{
 		platforms.for_each_child("platform", [&](const XML::gcXMLElement &platform)
 		{
-			if (m_pUser->platformFilter(platform, PT_Item))
+			if (getUserCore()->platformFilter(platform, PlatformType::Item))
 				return;
 
 			parseItemsQuick(platform);
@@ -323,7 +322,7 @@ void InstalledWizardThread::parseGame(DesuraId id, const XML::gcXMLElement &game
 	}
 	catch (gcException &except)
 	{
-		Warning(gcString("ItemWizard: Error in xml parsing (installed wizard, games): {0}\n", except));
+		Warning("ItemWizard: Error in xml parsing (installed wizard, games): {0}\n", except);
 		return;
 	}
 		
@@ -384,13 +383,13 @@ void InstalledWizardThread::parseMod(DesuraId parId, DesuraId id, const XML::gcX
 	}
 	catch (gcException &except)
 	{
-		Warning(gcString("ItemWizard: Error in xml parsing (installed wizard, mods): {0}\n", except));
+		Warning("ItemWizard: Error in xml parsing (installed wizard, mods): {0}\n", except);
 	}
 }
 
 void InstalledWizardThread::parseItems1(const XML::gcXMLElement &fNode, WildcardManager *pWildCard, std::map<uint64, XML::gcXMLElement> *vMap)
 {
-	assert(pWildCard);
+	gcAssert(pWildCard);
 
 	if (!fNode.IsValid())
 		return;
@@ -414,7 +413,7 @@ void InstalledWizardThread::parseItems1(const XML::gcXMLElement &fNode, Wildcard
 
 void InstalledWizardThread::parseItems2(const XML::gcXMLElement &fNode, WildcardManager *pWildCard)
 {
-	assert(pWildCard);
+	gcAssert(pWildCard);
 
 	if (!fNode.IsValid())
 		return;
@@ -432,7 +431,7 @@ void InstalledWizardThread::parseItems2(const XML::gcXMLElement &fNode, Wildcard
 
 	fNode.FirstChildElement("platforms").for_each_child("platform", [&](const XML::gcXMLElement &platform)
 	{
-		if (m_pUser->platformFilter(platform, PT_Item))
+		if (getUserCore()->platformFilter(platform, PlatformType::Item))
 			return;
 
 		WildcardManager wm(pWildCard);
@@ -458,7 +457,7 @@ void InstalledWizardThread::onItemFound(UserCore::Item::ItemInfoI *item)
 		if (!m_pTaskGroup)
 		{
 			UserCore::ItemManager* im = dynamic_cast<UserCore::ItemManager*>(getUserCore()->getItemManager());
-			assert(im);
+			gcAssert(im);
 			m_pTaskGroup = im->newTaskGroup(UserCore::Item::ItemTaskGroupI::A_VERIFY);
 			m_pTaskGroup->start();
 		}

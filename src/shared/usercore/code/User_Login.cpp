@@ -85,7 +85,7 @@ void User::initPipe()
 	if (m_pPipeClient)
 		return;
 
-	m_pPipeClient = new UserIPCPipeClient(getUserName(), getAppDataPath(), true);
+	m_pPipeClient = std::make_shared<UserIPCPipeClient>(getUserName(), getAppDataPath(), true);
 	m_pPipeClient->onDisconnectEvent += delegate(&onPipeDisconnect);
 
 	size_t x=0;
@@ -206,7 +206,7 @@ void User::doLogIn(const char* user, const char* pass, bool bTestOnly)
 		}
 		catch (gcException &e)
 		{
-			Warning(gcString("Failed to set mcf cache path to be writeable: {0}", e));
+			Warning("Failed to set mcf cache path to be writeable: {0}", e);
 		}
 	}
 #endif

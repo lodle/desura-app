@@ -47,20 +47,21 @@ enum
 class CVarManager;
 
 extern CVarManager* g_pCVarMang;
+extern CVarRegTargetI* g_pCVarRegTarget;
 
 void InitCVarManger();
 void DestroyCVarManager();
 void SaveCVars();
 
 
-class CVarManager : public BaseManager<CVar>, public CVarManagerI
+class CVarManager : public BaseManager<CVar>, public CVarManagerI, public CVarRegTargetI
 {
 public:
 	CVarManager();
 	~CVarManager();
 
-	bool RegCVar(CVar* var);
-	void UnRegCVar(CVar* var);
+	bool RegCVar(CVar* var) override;
+	void UnRegCVar(CVar* var) override;
 
 	void cleanUserCvars();
 
@@ -93,12 +94,12 @@ protected:
 	void loadCVarFromDb(CVar *var, const char* szSql, gcString strExtra);
 
 private:
-	uint32 m_uiUserId;
+	uint32 m_uiUserId = -1;
 	gcString m_szCVarDb;
 
-	bool m_bUserLoaded;
-	bool m_bWinUserLoaded;
-	bool m_bNormalLoaded;
+	bool m_bUserLoaded = false;
+	bool m_bWinUserLoaded = false;
+	bool m_bNormalLoaded = false;
 };
 
 #endif //DESURA_CVAR_MANAGER_H

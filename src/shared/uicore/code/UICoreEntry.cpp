@@ -36,6 +36,8 @@ $/LicenseInfo$
   #include <gtest/gtest.h>
 #endif
 
+#include "Console.h"
+
 extern "C" CEXPORT UICoreI* GetInterface();
 
 #ifdef NIX
@@ -91,11 +93,18 @@ void gtkMessageBox(const char* text, const char* title)
 } 
 #endif
 
+static void gcAssertHandler(const wxString &file, int line, const wxString &func, const wxString &cond, const wxString &msg)
+{
+	gcAssert(false);
+}
+
 class UICore : public UICoreI
 {
 public:
 	UICore()
 	{
+		wxSetAssertHandler(&gcAssertHandler);
+
 		m_szAppVersion = nullptr;
 		m_pDumpSettings = nullptr;
 		m_pDumpLevel = nullptr;
@@ -104,14 +113,17 @@ public:
 		m_bExitCodeSet = false;
 		m_iExitCode = 0;
 
-#if defined(DEBUG) && defined(WITH_GTEST)
+#ifdef WITH_GTEST
+        m_hUnitTest.load("unittest.dll");
+        m_hCrashUploader.load("crashuploader.dll");
+        m_hServiceCore.load("servicecore.dll");
 
-#ifdef WIN32
-		m_hUnitTest.load("unittest.dll");
-#else
-		m_hUnitTest.load("unittest.so");
+#ifdef NIX
+        //need to not unload these as it crashes the app on exit deleting the tests
+        m_hUnitTest.dontUnloadOnDelete();
+        m_hCrashUploader.dontUnloadOnDelete();
+        m_hServiceCore.dontUnloadOnDelete();
 #endif
-
 #endif
 	}
 
@@ -277,17 +289,16 @@ public:
 	int runUnitTests(int argc, char** argv)
 	{
 #ifdef WITH_GTEST
-#ifdef WIN32
-		m_hUnitTest.load("unittest.dll");
-#else
-		m_hUnitTest.load("unittest.so");
-#endif
-
 		testing::InitGoogleTest(&argc, argv);
 		return RUN_ALL_TESTS();
 #else
 		return 0;
 #endif
+	}
+
+	void setTracer(TracerI *pTracer) override
+	{
+		Console::setTracer(pTracer);
 	}
 
 private:
@@ -300,7 +311,11 @@ private:
 	bool m_bExitCodeSet;
 	int32 m_iExitCode;
 
+#ifdef WITH_GTEST
 	SharedObjectLoader m_hUnitTest;
+	SharedObjectLoader m_hCrashUploader;
+	SharedObjectLoader m_hServiceCore;
+#endif
 
 #ifndef WIN32
 	wxSingleInstanceChecker* m_pChecker;

@@ -53,12 +53,12 @@ public:
 	{
 	}
 
-	void OnTestIterationStart(const UnitTest& unit_test, int iteration)
+	void OnTestIterationStart(const ::testing::UnitTest& unit_test, int iteration)
 	{
 		onStartEvent();
 	}
 
-	void OnTestIterationEnd(const UnitTest& unit_test, int iteration)
+	void OnTestIterationEnd(const ::testing::UnitTest& unit_test, int iteration)
 	{
 		onEndEvent();
 	}
@@ -136,7 +136,7 @@ static gcUnitTestWatcher* SetupTestWatcher()
 {
 	gcUnitTestWatcher* pWatcher = new gcUnitTestWatcher();
 
-	TestEventListeners& listeners = UnitTest::GetInstance()->listeners();
+	TestEventListeners& listeners = ::testing::UnitTest::GetInstance()->listeners();
 	listeners.Append(pWatcher);
 	
 #ifdef WIN32
@@ -158,8 +158,13 @@ static gcUnitTestWatcher* SetupTestWatcher()
 #endif
 
 	int argc = args.getArgc();
-	InitGoogleTest(&argc, const_cast<char**>(args.getArgv()));
 
+#ifdef WITH_GMOCK
+	InitGoogleMock(&argc, const_cast<char**>(args.getArgv()));
+#else
+	InitGoogleTest(&argc, const_cast<char**>(args.getArgv()));
+#endif
+	
 	if (args.hasArg("unittests"))
 		pWatcher->disableAssertOnFailure();
 

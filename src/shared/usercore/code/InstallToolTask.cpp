@@ -51,7 +51,7 @@ InstallToolTask::~InstallToolTask()
 void InstallToolTask::doRun()
 {
 	uint32 per = 0;
-	getItemInfo()->setPercent(per);
+	getItemInfo()->getInternal()->setPercent(per);
 
 	std::vector<DesuraId> toolList;
 	getItemInfo()->getCurrentBranch()->getToolList(toolList);
@@ -61,14 +61,13 @@ void InstallToolTask::doRun()
 	
 	if (!getUserCore()->getToolManager()->areAllToolsInstalled(toolList))
 	{
-		UserCore::Misc::ToolTransaction* tt = new UserCore::Misc::ToolTransaction();
+		UserCore::Misc::ToolTransaction* tt = new UserCore::Misc::ToolTransaction(toolList);
 
 		tt->onCompleteEvent += delegate(this, &InstallToolTask::onINComplete);
 		tt->onErrorEvent += delegate(this, &InstallToolTask::onINError);
 		tt->onProgressEvent += delegate(this, &InstallToolTask::onINProgress);
 		tt->onStartInstallEvent += delegate(this, &InstallToolTask::onINStart);
 		tt->onStartIPCEvent += delegate(this, &InstallToolTask::onIPCStart);
-		tt->toolsList = toolList;
 
 		m_ToolTTID = getUserCore()->getToolManager()->installTools(tt);
 		gcException e(ERR_BADID, "Failed to install tools as transaction was cancelled.");
@@ -124,7 +123,7 @@ void InstallToolTask::onINProgress(UserCore::Misc::ToolProgress &p)
 	m.percent = p.percent;
 
 	onMcfProgressEvent(m);
-	getItemInfo()->setPercent(p.percent);
+	getItemInfo()->getInternal()->setPercent(p.percent);
 }
 
 void InstallToolTask::onINError(gcException &e)
@@ -151,7 +150,7 @@ void InstallToolTask::onComplete()
 
 	if (hasError)
 	{
-		getItemHandle()->completeStage(true);
+		getItemHandle()->getInternal()->completeStage(true);
 	}
 	else
 	{
@@ -159,9 +158,9 @@ void InstallToolTask::onComplete()
 		onCompleteEvent(blank);
 
 		if (m_bLaunch)
-			getItemHandle()->goToStageLaunch();
+			getItemHandle()->getInternal()->goToStageLaunch();
 		else
-			getItemHandle()->completeStage(false);
+			getItemHandle()->getInternal()->completeStage(false);
 	}
 }
 

@@ -119,8 +119,8 @@ void SMTController::onStop()
 
 void SMTController::run()
 {
-	assert(m_uiNumber);
-	assert(m_szFile);
+	gcAssert(m_uiNumber);
+	gcAssert(m_szFile);
 
 	fillFileList();
 	m_pUPThread->start();
@@ -205,6 +205,8 @@ void SMTController::postProcessing()
 	if (m_uiNumber == 1)
 		return;
 
+	gcTrace("");
+
 	UTIL::FS::FileHandle fhSource;
 	UTIL::FS::FileHandle fhSink;
 
@@ -277,6 +279,8 @@ void SMTController::postProcessing()
 
 void SMTController::fillFileList()
 {
+	gcTrace("");
+
 	uint64 sumSize = 0;
 
 	std::vector<tFile*> vList;
@@ -319,7 +323,7 @@ void SMTController::fillFileList()
 MCFThreadStatus SMTController::getStatus(uint32 id)
 {
 	SMTWorkerInfo* worker = findWorker(id);
-	assert(worker);
+	gcAssert(worker);
 
 	if (isPaused())
 		return MCFThreadStatus::SF_STATUS_PAUSE;
@@ -332,8 +336,10 @@ MCFThreadStatus SMTController::getStatus(uint32 id)
 
 std::shared_ptr<MCFCore::MCFFile> SMTController::newTask(uint32 id)
 {
+	gcTrace("Id: {0}", id);
+
 	SMTWorkerInfo* worker = findWorker(id);
-	assert(worker);
+	gcAssert(worker);
 
 	if (worker->status != MCFThreadStatus::SF_STATUS_NULL)
 		return nullptr;
@@ -371,8 +377,10 @@ std::shared_ptr<MCFCore::MCFFile> SMTController::newTask(uint32 id)
 
 void SMTController::endTask(uint32 id)
 {
+	gcTrace("Id: {0}", id);
+
 	SMTWorkerInfo* worker = findWorker(id);
-	assert(worker);
+	gcAssert(worker);
 
 	worker->status = MCFThreadStatus::SF_STATUS_NULL;
 
@@ -392,19 +400,21 @@ SMTWorkerInfo* SMTController::findWorker(uint32 id)
 
 void SMTController::reportError(uint32 id, gcException &e)
 {
+	gcTrace("Id: {0}, E: {1}", id, e);
+
 #ifdef WIN32
 	SMTWorkerInfo* worker = findWorker(id);
-	assert(worker);
+	gcAssert(worker);
 #endif
-	Warning(gcString("SMTControler {0} Error: {1}.\n", id, e));
+	Warning("SMTControler {0} Error: {1}.\n", id, e);
 	onErrorEvent(e);
 }
 
 void SMTController::reportProgress(uint32 id, uint64 ammount)
 {
 	SMTWorkerInfo* worker = findWorker(id);
-	assert(worker);
-	assert(m_pUPThread);
+	gcAssert(worker);
+	gcAssert(m_pUPThread);
 
 	m_pUPThread->reportProg(id, worker->ammountDone + ammount);
 }

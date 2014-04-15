@@ -213,6 +213,8 @@ public:
 	UserCore::Item::Misc::ExeInfoI* getActiveExe(MCFBranch branch = MCFBranch()) override { return &m_Exe1; }
 	void setActiveExe(const char* name, MCFBranch branch = MCFBranch()) override { }
 
+	ItemInfoInternalI* getInternal() override { return nullptr; }
+
 	LanguageStubExeInfo m_Exe1;
 	LanguageStubExeInfo m_Exe2;
 	LanguageStubBranch m_Branch;
@@ -248,9 +250,9 @@ public:
 	ToolTransactionId installTools(UserCore::Misc::ToolTransaction* transaction) override { return ToolTransactionId(); }
 	bool updateTransaction(ToolTransactionId ttid, UserCore::Misc::ToolTransaction* transaction) override { return false; }
 	void parseXml(const XML::gcXMLElement &toolinfoNode) override { }
-	bool areAllToolsValid(std::vector<DesuraId> &list) override { return false; }
-	bool areAllToolsDownloaded(std::vector<DesuraId> &list) override { return false; }
-	bool areAllToolsInstalled(std::vector<DesuraId> &list) override { return false; }
+	bool areAllToolsValid(const std::vector<DesuraId> &list) override { return false; }
+	bool areAllToolsDownloaded(const std::vector<DesuraId> &list) override { return false; }
+	bool areAllToolsInstalled(const std::vector<DesuraId> &list) override { return false; }
 	void saveItems() override { }
 	std::string getToolName(DesuraId toolId) override { return "[Test Tool]"; }
 	void findJSTools(UserCore::Item::ItemInfo* item) override { }
@@ -274,7 +276,7 @@ public:
 	void setFactory(Helper::ItemHandleFactoryI* factory) override { }
 	void addHelper(Helper::ItemHandleHelperI* helper) override 
 	{
-		assert(m_pHelper == nullptr);
+		gcAssert(m_pHelper == nullptr);
 		m_pHelper = helper;
 	}
 
@@ -327,6 +329,9 @@ public:
 #ifdef NIX
 	void installLaunchScripts() override { }
 #endif
+
+	
+	ItemHandleInternalI* getInternal() override { return nullptr; }
 
 	//Item Group
 	ItemTaskGroupI::ACTION getAction() override { return ItemTaskGroupI::A_VERIFY; }

@@ -102,7 +102,7 @@ void WildcardManager::constructPath(const char* path, char **res, uint8 *depth)
 	(*depth)++;
 
 	if (*depth > 25)
-		throw gcException(ERR_WILDCARD, "Hit max recursion while constructing path (posible loop).");
+		throw gcException(ERR_WILDCARD, "Hit max recursion while constructing path (possible loop).");
 
 	size_t len = strlen(path);
 
@@ -353,7 +353,7 @@ void WildcardManager::resolveWildCard(WildcardInfo *wcInfo)
 	}
 	else
 	{
-		Warning(gcString("Unknown Wildcard type: {0}\n", wcInfo->m_szType));
+		Warning("Unknown Wildcard type: {0}\n", wcInfo->m_szType);
 	}
 }
 
@@ -376,7 +376,7 @@ void WildcardManager::updateInstallWildcard(const char* name, const char* value)
 	}
 	else
 	{
-		Warning(gcString("Trying to update non install wildcard [{0}]\n", name));
+		Warning("Trying to update non install wildcard [{0}]\n", name);
 	}
 }
 

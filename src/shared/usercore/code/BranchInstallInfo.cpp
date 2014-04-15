@@ -55,12 +55,13 @@ namespace Item
 {
 
 
-BranchInstallInfo::BranchInstallInfo(uint32 biId, BranchItemInfoI *itemInfo)
+BranchInstallInfo::BranchInstallInfo(uint32 biId, BranchItemInfoI *itemInfo, UTIL::FS::UtilFSI* pFileSystem)
 	: m_BiId(biId)
 	, m_pItem(itemInfo)
 	, m_ItemId(itemInfo->getId())
 	, m_uiInstallSize(0)
 	, m_uiDownloadSize(0)
+	, m_pFileSystem(pFileSystem)
 {
 }
 
@@ -413,7 +414,7 @@ ProcessResult BranchInstallInfo::processSettings(const XML::gcXMLElement &setNod
 			if (iPathRes)
 				setPath(iPathRes);
 			else
-				Warning(gcString("ItemInfo: Install path for {0} is nullptr.\n"));
+				Warning("ItemInfo: Install path for {0} is nullptr.\n");
 		}
 		catch (gcException &)
 		{
@@ -463,11 +464,11 @@ UserCore::Item::Misc::ExeInfoI* BranchInstallInfo::getActiveExe()
 
 	if (!ei)
 	{
-		uint32 rank = -1;
+		uint32 rank = 0;
 
 		for (auto exe : m_vExeList)
 		{
-			if (exe->m_uiRank > rank)
+			if (!ei || exe->m_uiRank > rank)
 			{
 				ei = exe;
 				rank = exe->m_uiRank;
@@ -491,7 +492,7 @@ void BranchInstallInfo::setActiveExe(const char* name)
 		}
 	}
 
-	Warning(gcString("Failed to set active exe to [{0}]\n", name));
+	Warning("Failed to set active exe to [{0}]\n", name);
 }
 
 void BranchInstallInfo::getExeList(std::vector<UserCore::Item::Misc::ExeInfoI*> &list)
@@ -774,13 +775,16 @@ void BranchInstallInfo::setLinkInfo(const char* exe, const char* args)
 
 bool BranchInstallInfo::isValidFile(const gcString &strFile)
 {
-	return UTIL::FS::isValidFile(UTIL::FS::PathWithFile(strFile));
+	return m_pFileSystem->isValidFile(UTIL::FS::PathWithFile(strFile));
 }
 
 void BranchInstallInfo::setLinkInfo(const char* szPath, const char* szExe, const char* szArgs)
 {
 	if ((m_pItem->getStatus() & ItemInfo::STATUS_LINK) != ItemInfo::STATUS_LINK)
+	{
+		gcAssert(false);
 		return;
+	}
 
 	setPath(szPath);
 	setInsCheck(szExe);
@@ -821,7 +825,7 @@ namespace UnitTest
 	{
 	public:
 		TestBranchInstallInfo(uint32 biId, BranchItemInfoI *itemInfo)
-			: BranchInstallInfo(biId, itemInfo)
+			: BranchInstallInfo(biId, itemInfo, UTIL::FS::g_pDefaultUTILFS)
 		{
 		}
 

@@ -27,6 +27,7 @@ $/LicenseInfo$
 #include "Common.h"
 #include "serviceMain.h"
 #include "ServiceCoreI.h"
+#include "Tracer.h"
 
 #include <Winbase.h>
 
@@ -45,6 +46,8 @@ CGCServiceApp::CGCServiceApp()
 {
 	m_pServiceCore = nullptr;
 	m_Fh = nullptr;
+
+	m_MiniDump.setTracerSharedMemoryName(g_Tracer.getSharedMemName());
 }
 
 CGCServiceApp::~CGCServiceApp()
@@ -72,7 +75,13 @@ bool CGCServiceApp::start(int argc, char** argv)
 		}
 	}
 
-	if (!SetDllPath(wdir.size()?wdir.c_str():nullptr))
+	if (wdir.empty())
+		wdir = ".\\bin";
+
+	DeleteFile("desura_service_old.exe");
+	DeleteFile("desura_old.exe");
+
+	if (!SetDllPath(wdir.c_str()))
 	{
 		log("Failed to set dll path. :(\n");
 		return false;
@@ -83,7 +92,10 @@ bool CGCServiceApp::start(int argc, char** argv)
 
 #if !defined(DEBUG) && defined(DESURA_OFFICIAL_BUILD) && defined(WITH_CODESIGN)
 	char message[255] = {0};
-	if (ValidateCert(L".\\bin\\servicecore.dll", message, 255) != ERROR_SUCCESS)
+
+	gcWString strPath(".\\bin\\servicecore.dll");
+
+	if (ValidateCert(strPath.c_str(), message, 255) != ERROR_SUCCESS)
 	{
 		log("Failed cert check on servicecore.dll: ");
 		log(message);
@@ -91,6 +103,7 @@ bool CGCServiceApp::start(int argc, char** argv)
 		return false;
 	}
 #endif
+
 	if (!m_SCDLL.load("servicecore.dll")) 
 	{
 		log("Failed to load servicecore.dll.\n");
@@ -116,6 +129,7 @@ bool CGCServiceApp::start(int argc, char** argv)
 	m_pServiceCore->setDisconnectCallback(&OnPipeDisconnect);
 	m_pServiceCore->setCrashSettingCallback(&SetCrashSettings);
 	m_pServiceCore->startPipe();
+	m_pServiceCore->setTracer(&g_Tracer);
 
     return true;
 }
@@ -134,6 +148,7 @@ void CGCServiceApp::stop()
 {
 	if (m_pServiceCore)
 	{
+		m_pServiceCore->setTracer(nullptr);
 		m_pServiceCore->stopPipe();
 		m_pServiceCore->destroy();
 	}

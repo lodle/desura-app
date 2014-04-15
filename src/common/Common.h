@@ -25,7 +25,6 @@ $/LicenseInfo$
 
 #ifndef COMMON_H
 	#define COMMON_H
-
 	#include <exception>
 
 	#ifdef DEBUG
@@ -38,24 +37,28 @@ $/LicenseInfo$
 		#define PAUSE_DEBUGGER()
 	#endif
 
-inline void DoAssert(const char* szExp, const char* szFile, int nLine)
+inline void DogcAssert(const char* szExp, const char* szFile, int nLine)
 {
 	PAUSE_DEBUGGER();
 }
 
+#ifdef gcAssert
+#undef gcAssert
+#endif
+
 #ifdef DEBUG
-	#define assert( X )				\
+	#define gcAssert( X )				\
 		do							\
 		{							\
 			bool bFailed = !(X);	\
 			if (bFailed)			\
 			{						\
-				DoAssert( #X , __FILE__ , __LINE__ );	\
+				DogcAssert( #X , __FILE__ , __LINE__ );	\
 			}						\
 		}							\
 		while(false)
 #else
-	#define assert( X )
+	#define gcAssert( X ) do { } while(false)
 #endif
 
 	#define BOOST_ENABLE_ASSERT_HANDLER 1
@@ -75,13 +78,13 @@ inline void DoAssert(const char* szExp, const char* szFile, int nLine)
 	{
 		inline void assertion_failed(char const * expr, char const * function, char const * file, long line)
 		{
-			assert(false);
+			gcAssert(false);
 			throw BoostException();
 		}
 
 		inline void assertion_failed_msg(char const * expr, char const * msg, char const * function, char const * file, long line)
 		{
-			assert(false);
+			gcAssert(false);
 			throw BoostException();
 		}
 	}
@@ -563,4 +566,13 @@ inline void DoAssert(const char* szExp, const char* szFile, int nLine)
 	}
 	#endif
 
+#endif
+
+
+#ifdef LINK_WITH_GTEST
+#include <gtest/gtest.h>
+#endif
+
+#ifdef LINK_WITH_GMOCK
+#include <gmock/gmock.h>
 #endif

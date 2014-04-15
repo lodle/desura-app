@@ -45,22 +45,15 @@ enum
 class WCSpecialInfo
 {
 public:
-	WCSpecialInfo()
-	{
-		handled = false;
-		processed = false;
-	}
-
 	gcString name;
 	gcString result;
-	volatile bool handled;	//true = special wildcard resolved
-	volatile bool processed;	//true = finished processing
+	volatile bool handled = false;	//true = special wildcard resolved
 };
 
 class WildcardInfo : public BaseItem
 {
 public:
-	WildcardInfo(const std::string& name, const std::string& path, const std::string& type, bool resolved = false) 
+	WildcardInfo(gcString name, gcString path, gcString type, bool resolved = false)
 		: BaseItem(name.c_str())
 		, m_szName(name)
 		, m_szPath(path)
@@ -69,13 +62,9 @@ public:
 	{
 	}
 
-	~WildcardInfo()
-	{
-	}
-
-	std::string m_szName;
-	std::string m_szPath;
-	std::string m_szType;
+	gcString m_szName;
+	gcString m_szPath;
+	gcString m_szType;
 	bool m_bResolved;
 };
 

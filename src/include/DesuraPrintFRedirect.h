@@ -23,55 +23,30 @@ Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 */
 
-#ifndef DESURA_DUMPINFO_H
-#define DESURA_DUMPINFO_H
-#ifdef _WIN32
-#pragma once
+#ifdef WIN32
+
+#include <stdio.h>
+#include <stdarg.h>
+
+
+void DesuraPrintFRedirect(const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	vprintf(format, args);
+
+	std::string strOut("\0");
+	strOut.reserve(1024);
+
+	vsnprintf(const_cast<char*>(strOut.c_str()), 1024, format, args);
+
+	LogMsg((MSG_TYPE)0, strOut, nullptr, nullptr);
+
+#ifdef DEBUG
+	OutputDebugStringA(strOut.c_str());
 #endif
 
-#include "webcore/DLLVersion.h"
-
-namespace WebCore
-{
-	namespace Misc
-	{
-
-		class DumpInfo
-		{
-		public:
-			DumpInfo()
-			{
-				nextFileSize = 0;
-				numberDone = 0;
-				stop = false;
-			}
-
-			volatile bool stop;
-			gcString dumpFolderPath;
-			gcString user;
-
-			Event<uint8> onProgressEvent;
-
-
-			std::vector<gcString> fileStack;
-
-			/// functions for upload
-			uint32 nextFileSize;
-			uint32 numberDone;
-
-			void onProgress(Prog_s &prog)
-			{
-				double unitProg = (double)100/(double)fileStack.size();
-				double curProg = prog.ultotal*unitProg/nextFileSize;
-
-				uint8 porg = (uint8)(numberDone*unitProg + curProg);
-				onProgressEvent(porg);
-
-				prog.abort = stop;
-			}
-		};
-
-	}
+	va_end(args);
 }
 
-#endif //DESURA_DUMPINFO_H
+#endif

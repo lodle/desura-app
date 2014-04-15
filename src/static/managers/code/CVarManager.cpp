@@ -32,13 +32,16 @@ $/LicenseInfo$
 #endif
 
 CVarManager* g_pCVarMang = nullptr;
-
+CVarRegTargetI* g_pCVarRegTarget = nullptr;
 
 void InitCVarManger()
 {
 	if (!g_pCVarMang)
+	{
 		g_pCVarMang = new CVarManager();
-
+		g_pCVarRegTarget = g_pCVarMang;
+	}
+		
 	g_pCVarMang->loadNormal();
 	g_pCVarMang->loadWinUser();
 }
@@ -66,11 +69,10 @@ void SaveCVars()
 #define COUNT_CVAR "SELECT count(*) FROM sqlite_master WHERE name='cvar';"
 
 
-CVarManager::CVarManager() : BaseManager()
+CVarManager::CVarManager() 
+	: BaseManager()
+	, m_szCVarDb(UTIL::OS::getAppDataPath(L"settings_b.sqlite"))
 {
-	m_uiUserId = -1;
-
-	m_szCVarDb = UTIL::OS::getAppDataPath(L"settings_b.sqlite");
 	UTIL::FS::recMakeFolder(UTIL::FS::Path(m_szCVarDb, "", true));
 
 	try
@@ -88,16 +90,17 @@ CVarManager::CVarManager() : BaseManager()
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to create cvar tables: {0}\n", e.what()));
+		Warning("Failed to create cvar tables: {0}\n", e.what());
 	}
-
-	m_bUserLoaded = false;
-	m_bWinUserLoaded = false;
-	m_bNormalLoaded = false;
 }
 
 CVarManager::~CVarManager()
 {
+	std::vector<CVar*> vList;
+	getCVarList(vList);
+
+	for (auto pVar : vList)
+		pVar->deregister();
 }
 
 bool CVarManager::RegCVar(CVar* var)
@@ -155,7 +158,7 @@ void CVarManager::loadCVarFromDb(CVar *var, const char* szSql, gcString strExtra
 		if (reader.read())
 		{
 			std::string value = reader.getstring(0);
-			var->setValueOveride(value.c_str());
+			var->setValueOveride(value.c_str(), true);
 		}
 	}
 	catch (std::exception &)
@@ -212,7 +215,7 @@ void CVarManager::loadWinUser()
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to load cvar win user: {0}\n", e.what()));
+		Warning("Failed to load cvar win user: {0}\n", e.what());
 	}
 }
 
@@ -230,7 +233,7 @@ void CVarManager::loadNormal()
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to load cvar normal: {0}\n", e.what()));
+		Warning("Failed to load cvar normal: {0}\n", e.what());
 	}
 }
 
@@ -268,7 +271,7 @@ void CVarManager::saveUser()
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to save cvar user: {0}\n", e.what()));
+		Warning("Failed to save cvar user: {0}\n", e.what());
 	}
 }
 
@@ -293,7 +296,7 @@ void CVarManager::saveWinUser()
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to save cvar win user: {0}\n", e.what()));
+		Warning("Failed to save cvar win user: {0}\n", e.what());
 	}
 }
 
@@ -312,7 +315,7 @@ void CVarManager::saveNormal()
 	}
 	catch (std::exception &e)
 	{
-		Warning(gcString("Failed to save cvar normal: {0}\n", e.what()));
+		Warning("Failed to save cvar normal: {0}\n", e.what());
 	}
 }
 
@@ -340,7 +343,7 @@ void CVarManager::loadFromDb(sqlite3x::sqlite3_reader &reader)
 		CVar* temp = findItem(name.c_str());
 
 		if (temp)
-			temp->setValueOveride(value.c_str());
+			temp->setValueOveride(value.c_str(), true);
 	}
 }
 

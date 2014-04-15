@@ -27,7 +27,11 @@ $/LicenseInfo$
 #include "Theme.h"
 #include "XMLMacros.h"
 
-Theme::Theme(const char* name) : ControlList(true), ImageList(true), SpriteList(true), WebList(true)
+Theme::Theme(const char* name) 
+	: ControlList(true)
+	, ImageList(true)
+	, SpriteList(true)
+	, WebList(true)
 {
 	m_szName = gcString(name);
 }
@@ -61,7 +65,7 @@ Color Theme::getColor(const char* name, const char* id)
 
 	if (strcmp(name, "default")!=0)
 	{
-		Warning(gcString("Cant find color {0} for control {1}, getting default\n", id, name));
+		Warning("Cant find color {0} for control {1}, getting default\n", id, name);
 		return getColor("default", id);
 	}
 

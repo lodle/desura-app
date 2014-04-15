@@ -94,6 +94,9 @@ MiniDumpGenerator::~MiniDumpGenerator()
 		delete s_pExceptionHandler;
 		s_pExceptionHandler = nullptr;
 	}
+
+	delete[] m_szTracerMemoryName;
+	delete[] m_szUser;
 }
 
 void MiniDumpGenerator::showMessageBox(bool state)
@@ -119,6 +122,22 @@ void MiniDumpGenerator::setUser(const wchar_t* user)
 	{
 		m_szUser = new wchar_t[255];
 		wcsncpy_s(m_szUser, 255, user, 255);
+	}
+}
+
+void MiniDumpGenerator::setTracerSharedMemoryName(const CHAR_T *pTracer)
+{
+	if (m_szTracerMemoryName)
+		delete[] m_szTracerMemoryName;
+
+	if (!pTracer)
+	{
+		m_szTracerMemoryName = nullptr;
+	}
+	else
+	{
+		m_szTracerMemoryName = new wchar_t[255];
+		wcsncpy_s(m_szTracerMemoryName, 255, pTracer, 255);
 	}
 }
 
@@ -237,20 +256,19 @@ bool MiniDumpGenerator::dumpreport(const wchar_t* file)
 	STARTUPINFOW StartupInfo = {0};
 
 	wchar_t launchArg[512] = {0};
-
-#ifdef _DEBUG
-	const wchar_t* exeName = L"dumpgen-d.exe";
-#else
-	const wchar_t* exeName = L"dumpgen.exe";
-#endif
-
-	_snwprintf_s(launchArg, 512, _TRUNCATE, L"%s -crashreport -file \"%s\"", exeName, file);
+	_snwprintf_s(launchArg, 512, _TRUNCATE, L"dumpgen.exe -crashreport -file \"%s\"", file);
 
 	if (m_bShowMsgBox)
 		wcscat_s(launchArg, 512, L" -msgbox");
 
 	if (m_bNoUpload)
 		wcscat_s(launchArg, 512, L" -noupload");
+
+	if (m_szTracerMemoryName)
+	{
+		wcscat_s(launchArg, 512, L" -tracer ");
+		wcscat_s(launchArg, 512, m_szTracerMemoryName);
+	}
 
 	if (m_szUser)
 	{
