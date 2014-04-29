@@ -33,6 +33,7 @@ $/LicenseInfo$
 #include "IPCMessage.h"
 #include "IPCLockable.h"
 #include "IPCPipeAuth.h"
+#include <atomic>
 
 #include "util_thread/BaseThread.h"
 
@@ -61,13 +62,42 @@ public:
 
 
 
+class IPCManagerI
+{
+public:
+	//! Send a message to the other side
+	//!
+	//! @param buff Message buffer
+	//! @param size Size of message
+	//! @param id Process id
+	//! @param type Message type
+	//!
+	virtual void sendMessage(const char* buff, uint32 size, uint32 id, uint8 type) = 0;
+
+	//! Send a message to this side from IPC thread
+	//!
+	//! @param buff Message buffer
+	//! @param size Size of message
+	//! @param id Process id
+	//! @param type Message type
+	//!
+	virtual void sendLoopbackMessage(const char* buff, uint32 size, uint32 id, uint8 type) = 0;
+
+	virtual void destroyClass(IPCClass* obj) = 0;
+
+	virtual bool isDisconnected() = 0;
+
+	virtual WeakPtr<IPCClass> createClass(const char* name) = 0;
+};
+
+class PendingPartRecvMessage;
 
 //! Manages IPC Communication 
 //!
-class IPCManager : public IPCLockable
+class IPCManager : public IPCLockable, public IPCManagerI
 {
 public:
-	//! Constuctor
+	//! Constructor
 	//!
 	//! @param isServer is this a server instance of the manager
 	//!
@@ -86,7 +116,7 @@ public:
 	//! @param id Process id
 	//! @param type Message type
 	//!
-	void sendMessage(const char* buff, uint32 size, uint32 id, uint8 type);
+	void sendMessage(const char* buff, uint32 size, uint32 id, uint8 type) override;
 
 	//! Send a message to this side from IPC thread
 	//!
@@ -95,7 +125,7 @@ public:
 	//! @param id Process id
 	//! @param type Message type
 	//!
-	void sendLoopbackMessage(const char* buff, uint32 size, uint32 id, uint8 type);
+	void sendLoopbackMessage(const char* buff, uint32 size, uint32 id, uint8 type) override;
 
 	//! Get a pending message to send
 	//!
@@ -117,7 +147,7 @@ public:
 	//! @param name Class name
 	//! @return New class or Null if cant create it
 	//!
-	WeakPtr<IPCClass> createClass(const char* name);
+	WeakPtr<IPCClass> createClass(const char* name) override;
 
 	//! Destroy a class created with createClass
 	//!
@@ -178,7 +208,7 @@ public:
 
 	void restart();
 
-	bool isDisconnected()
+	bool isDisconnected() override
 	{
 		return m_bDisconnected;
 	}
@@ -211,6 +241,8 @@ protected:
 	void stop();
 
 
+	void joinPartMessages(std::vector<PipeMessage*> &vMessages);
+
 private:
 	int32 m_mClassId;
 
@@ -238,12 +270,18 @@ private:
 	LoopbackProcessor* m_pLoopbackProcessor;
 
 	gcString m_szThreadName;
+
+	std::atomic<uint64> m_nMsgSerial;
+	std::mutex m_PartLock;
+	std::map<uint64, std::vector<PipeMessage*>> m_mOutstandingPartMessages;
+
+	std::shared_ptr<PendingPartRecvMessage> m_pPendingMessage;
 };
 
 
 
 template <class T>
-T* CreateIPCClass(IPC::IPCManager* mng, const char* name)
+T* CreateIPCClass(IPC::IPCManagerI* mng, const char* name)
 {
 	if (!mng || ! name)
 		return nullptr;

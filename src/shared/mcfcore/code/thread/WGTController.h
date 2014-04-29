@@ -46,6 +46,7 @@ namespace MCFCore
 	{
 		class WGTWorkerInfo;
 
+		class WGTWorkerList;
 
 		//! Web Get Thread controller. Downloads mcf from mcf servers
 		//!
@@ -117,14 +118,14 @@ namespace MCFCore
 			//!
 			Misc::WGTSuperBlock* stealBlocks();
 
-			virtual Misc::WGTSuperBlock* newTask(uint32 id, MCFThreadStatus &status);
-			virtual MCFThreadStatus getStatus(uint32 id);
-			virtual void reportError(uint32 id, gcException &e);
-			virtual void reportProgress(uint32 id, uint64 ammount);
-			virtual void reportNegProgress(uint32 id, uint64 ammount);
-			virtual void workerFinishedBlock(uint32 id, Misc::WGTBlock* block);
-			virtual void workerFinishedSuperBlock(uint32 id);
-			virtual void pokeThread();
+			bool newTask(uint32 id, MCFThreadStatus &status, Misc::WGTSuperBlock* &pSuperBlock) override;
+			MCFThreadStatus getStatus(uint32 id) override;
+			void reportError(uint32 id, gcException &e, Misc::WGTSuperBlock* &pSuperBlock) override;
+			void reportProgress(uint32 id, uint64 ammount) override;
+			void reportNegProgress(uint32 id, uint64 ammount) override;
+			void workerFinishedBlock(uint32 id, Misc::WGTBlock* block) override;
+			void workerFinishedSuperBlock(uint32 id, Misc::WGTSuperBlock* &pSuperBlock) override;
+			void pokeThread() override;
 
 		private:
 			MCFCore::Misc::ProviderManager m_ProvManager;
@@ -135,11 +136,14 @@ namespace MCFCore
 			bool m_bCheckMcf = false;
 			volatile bool m_bDoingStop = false;
 
-			std::vector<WGTWorkerInfo*> m_vWorkerList;
+			std::unique_ptr<WGTWorkerList> m_pWorkerList;
+			const std::vector<WGTWorkerInfo*>& m_vWorkerList;
 			std::deque<Misc::WGTSuperBlock*> m_vSuperBlockList;
 			std::vector<uint32> m_vDlFiles;
 
 			::Thread::WaitCondition m_WaitCondition;
+
+			
 
 #ifdef DEBUG
 			uint64 m_uiSaved = 0;

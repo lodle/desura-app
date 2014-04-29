@@ -44,54 +44,37 @@ typedef struct
 
 char* serializeList(std::vector<IPCParameterI*> &pList, uint32 &rsize)
 {
-	uint32 tsize = 0;
-	std::vector<IPCParameter*> vIPCP;
+	rsize = 0;
 
-	for (size_t x=0; x<pList.size(); x++)
-	{
-		uint32 size = 0;
-		char* data = pList[x]->serialize( size );
+	for (auto p : pList)
+		rsize += IPCParameterSIZE + p->getSerializeSize();
 
-		char* buff = new char[size + IPCParameterSIZE];
-		IPCParameter* p = (IPCParameter*)buff;
-	
-		memcpy(&p->data, data, size);
-		p->size = size;
-		p->type = pList[x]->getType();
-
-		vIPCP.push_back(p);
-		tsize += sizeofStruct(p);
-
-		safe_delete(data);
-	}
-
-	char* buff = new char[tsize];
+	char* buff = new char[rsize];
 	char* temp = buff;
 
-	for (size_t x=0; x<pList.size(); x++)
+	for (auto p : pList)
 	{
-		memcpy(temp, vIPCP[x], sizeofStruct(vIPCP[x]) );
-		temp += sizeofStruct(vIPCP[x]);
+		IPCParameter* pStruct = (IPCParameter*)temp;
 
-		delete [] (char*)vIPCP[x];
+		pStruct->size = p->getSerializeSize();
+		pStruct->type = p->getType();
+
+		temp += IPCParameterSIZE;
+		p->serialize(temp);
+		temp += pStruct->size;
 	}
 
-	rsize = tsize;
 	return buff;
 }
-
-
-
 
 uint32 deserializeList(std::vector<IPCParameterI*> &list, const char* buffer, uint32 size)
 {
 	uint32 sizeLeft = size;
 	const char* tempB = buffer;
-	IPCParameter* tempP;
 
 	while (sizeLeft > 0)
 	{
-		tempP = (IPCParameter*)tempB;
+		auto tempP = (IPCParameter*)tempB;
 		IPCParameterI* p = getParameter(tempP->type, &tempP->data, tempP->size);
 
 		list.push_back(p);
@@ -109,11 +92,11 @@ uint32 deserializeList(std::vector<IPCParameterI*> &list, const char* buffer, ui
 
 
 
-IPCClass::IPCClass(IPCManager* mang, uint32 id, DesuraId itemId)
+IPCClass::IPCClass(IPCManagerI* mang, uint32 id, DesuraId itemId)
+	: m_uiItemId(itemId)
+	, m_pManager(mang)
+	, m_uiId(id)
 {
-	m_uiItemId = itemId;
-	m_pManager = mang;
-	m_uiId = id;
 }
 
 IPCClass::~IPCClass()
@@ -121,8 +104,6 @@ IPCClass::~IPCClass()
 	safe_delete(m_mFunc);
 	safe_delete(m_mEvent);
 }
-
-
 
 IPCParameterI* IPCClass::callFunction(const char* name, bool async, IPCParameterI* a, IPCParameterI* b, IPCParameterI* c, IPCParameterI* d, IPCParameterI* e, IPCParameterI* f)
 {
@@ -325,61 +306,77 @@ void IPCClass::messageRecived(uint8 type, const char* buff, uint32 size)
 	}
 }
 
-void IPCClass::handleFunctionCall(const char* buff, uint32 size, bool async)
+IPCParameterI* IPCClass::doHandleFunctionCall(const char* buff, uint32 size, uint32 &nFunctionId, uint32 &nFunctionHash)
 {
+	if (size < IPCFunctionCallSIZE)
+		throw gcException(ERR_IPC, "IPC Handle Function call buffer size is too small.");
+
 	IPCFunctionCall *fch = (IPCFunctionCall*)buff;
 
-	std::map<uint32,NetworkFunctionI*>::iterator it;
+	if (size < fch->size + IPCFunctionCallSIZE)
+	{
+		Warning("IPC Handle Function call buffer size is too small. Some args might have invalid data.");
+		fch->size = size - IPCFunctionCallSIZE;
+	}
+
+	nFunctionId = fch->id;
+	nFunctionHash = fch->functionHash;
+
+	std::map<uint32, NetworkFunctionI*>::iterator it;
 	it = m_mFunc.find(fch->functionHash);
 
-	IPCParameterI* ret = nullptr;
-
-	if (it != m_mFunc.end())
+	if (it == m_mFunc.end())
 	{
-		ret = it->second->call(&fch->data, fch->size, fch->numP);
-	}
-	else
-	{
-		gcException errFindFailed(ERR_IPC, gcString("Failed to find function [H:{0}, NP:{1}]!", fch->functionHash, fch->numP));
-		ret = new PException(errFindFailed);
 		Warning("Failed to find function for function call \n");
+		throw gcException(ERR_IPC, gcString("Failed to find function [H:{0}, NP:{1}]!", fch->functionHash, fch->numP));
+	}
+
+	return it->second->call(&fch->data, fch->size, fch->numP);
+}
+
+void IPCClass::handleFunctionCall(const char* buff, uint32 size, bool async)
+{
+	uint32 nFunctionId = 0;
+	uint32 nFunctionHash = 0;
+	std::shared_ptr<IPCParameterI> ret;
+
+	try
+	{
+		ret = std::shared_ptr<IPCParameterI>(doHandleFunctionCall(buff, size, nFunctionId, nFunctionHash));
+	}
+	catch (gcException &e)
+	{
+		ret = std::make_shared<PException>(e);
 	}
 
 	//dont worry about return for async calls.
-	if (async)
-	{
-		safe_delete(ret);
+	if (async || nFunctionHash == 0)
 		return;
-	}
 
 	if (!ret)
-		ret = new PVoid();
+		ret = std::make_shared<PVoid>();
 
-	uint32 dsize = 0;
-	char* data = ret->serialize(dsize);
-
+	uint32 dsize = ret->getSerializeSize();
 	uint32 bsize = IPCFunctionCallSIZE + dsize + IPCParameterSIZE;
-	char* nbuff = new char[bsize];
+
+	gcBuff tempBuff(bsize);
+	char* nbuff = tempBuff.c_ptr();
 
 	memset(nbuff, 1, bsize);
 
 	IPCFunctionCall *fchr = (IPCFunctionCall*)nbuff;
-	fchr->id = fch->id;
+	fchr->id = nFunctionId;
 	fchr->numP = 1;
-	fchr->functionHash = fch->functionHash;
+	fchr->functionHash = nFunctionHash;
 	fchr->size = dsize + IPCParameterSIZE;
 
 	IPCParameter *p = (IPCParameter*)&fchr->data;
 
 	p->size = dsize;
 	p->type = ret->getType();
-	memcpy(&p->data, data, dsize);
+	ret->serialize(&p->data);
 
 	sendMessage( MT_FUNCTIONRETURN, (const char*)fchr, sizeofStruct(fchr) );
-
-	safe_delete(data);
-	safe_delete(nbuff);
-	safe_delete(ret);
 }
 
 void IPCClass::handleFunctionReturn(const char* buff, uint32 size)
@@ -414,7 +411,12 @@ void IPCClass::handleEventTrigger(const char* buff, uint32 size)
 
 	if (it != m_mEvent.end())
 	{
-		it->second->trigger(&fch->data, fch->size);
+		std::vector<IPCParameterI*> vParameters;
+		deserializeList(vParameters, &fch->data, fch->size);
+
+		it->second->trigger(vParameters);
+
+		safe_delete(vParameters);
 	}
 	else
 	{

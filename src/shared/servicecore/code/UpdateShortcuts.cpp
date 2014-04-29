@@ -26,6 +26,7 @@ $/LicenseInfo$
 #include "Common.h"
 
 #include <branding/branding.h>
+#include "umcf/UMcf.h"
 
 #ifdef WIN32
 #include <ShlObj.h>
@@ -78,6 +79,13 @@ void UpdateShortCuts()
 		UTIL::FS::delFile(spThree);
 		UTIL::WIN::createShortCut(gcWString(spThree).c_str(), uninstall.c_str(), wd.c_str(), "", true);
 	}
+
+	UMcf u;
+	u.setRegValues(curDir);
+
+
+	UTIL::WIN::delRegValue(gcString("HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers\\{0}", UTIL::STRING::urlEncode(exe)));
+	UTIL::WIN::delRegValue(gcString("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers\\{0}", UTIL::STRING::urlEncode(exe)));
 }
 #else
 

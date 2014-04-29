@@ -33,7 +33,7 @@ using namespace MCFCore::Thread;
 
 
 WGTWorker::WGTWorker(WGTControllerI* controller, uint16 id, MCFCore::Misc::ProviderManager &provMng) 
-    : BaseThread( "WebGet Worker Thread" )
+	: BaseThread( gcString("WebGet Worker Thread {0}", id).c_str() )
 	, m_ProvMng(provMng)
 	, m_uiId(id)
 	, m_pCT(controller)
@@ -240,7 +240,7 @@ void WGTWorker::doDownload()
 	if (!m_pCurBlock)
 	{
 		MCFThreadStatus status = MCFThreadStatus::SF_STATUS_NULL;
-		m_pCurBlock = m_pCT->newTask(m_uiId, status);
+		m_pCT->newTask(m_uiId, status, m_pCurBlock);
 
 		if (!m_pCurBlock)
 		{
@@ -269,6 +269,8 @@ void WGTWorker::doDownload()
 	}
 	catch (gcException &excep)
 	{
+		takeProgressOff();
+
 		if (excep.getErrId() == ERR_MCFSERVER && excep.getSecErrId() == ERR_USERCANCELED)
 		{
 			//do nothing. Block errored out before or client paused.
@@ -294,19 +296,15 @@ void WGTWorker::doDownload()
 			}
 			else
 			{
-				m_pCT->reportError(m_uiId, excep);
+				m_pCT->reportError(m_uiId, excep, m_pCurBlock);
 			}
 		}
 
-		takeProgressOff();
 		return;
 	}
 
 	if (m_pCurBlock->size == 0)
-	{
-		m_pCT->workerFinishedSuperBlock(m_uiId);
-		m_pCurBlock = nullptr;
-	}
+		m_pCT->workerFinishedSuperBlock(m_uiId, m_pCurBlock);
 }
 
 
@@ -337,11 +335,15 @@ void WGTWorker::onStop()
 
 void WGTWorker::takeProgressOff()
 {
+	gcAssert(m_pCurBlock);
+
+	if (!m_pCurBlock)
+		return;
+
 	m_pCT->reportNegProgress(m_uiId, m_pCurBlock->done);
 	m_pCurBlock->done = 0;
 
-	m_pCT->workerFinishedSuperBlock(m_uiId);
-	m_pCurBlock = nullptr;
+	m_pCT->workerFinishedSuperBlock(m_uiId, m_pCurBlock);
 }
 
 void WGTWorker::onProgress(uint32& prog)
@@ -364,7 +366,7 @@ void WGTWorker::requestNewUrl(gcException& e)
 	else
 	{
 		gcException e(ERR_MCFSERVER, "No more download servers to use.");
-		m_pCT->reportError(m_uiId, e);
+		m_pCT->reportError(m_uiId, e, m_pCurBlock);
 		m_pCT->pokeThread();
 	}
 }
@@ -443,9 +445,10 @@ namespace UnitTest
 		{
 		}
 
-		MCFCore::Thread::Misc::WGTSuperBlock* newTask(uint32 id, MCFThreadStatus &status) override
+		bool newTask(uint32 id, MCFThreadStatus &status, MCFCore::Thread::Misc::WGTSuperBlock* &pSuperBlock) override
 		{
-			return &m_SuperBlock;
+			pSuperBlock = &m_SuperBlock;
+			return true;
 		}
 
 		MCFThreadStatus getStatus(uint32 id) override
@@ -453,8 +456,9 @@ namespace UnitTest
 			return MCFThreadStatus::SF_STATUS_CONTINUE;
 		}
 
-		void reportError(uint32 id, gcException &e) override
+		void reportError(uint32 id, gcException &e, MCFCore::Thread::Misc::WGTSuperBlock* &pSuperBlock) override
 		{
+			pSuperBlock = nullptr;
 		}
 
 		void reportProgress(uint32 id, uint64 ammount) override
@@ -470,9 +474,10 @@ namespace UnitTest
 			m_vCompletedBlocks.push_back(block);
 		}
 
-		void workerFinishedSuperBlock(uint32 id) override
+		void workerFinishedSuperBlock(uint32 id, MCFCore::Thread::Misc::WGTSuperBlock* &pSuperBlock) override
 		{
 			m_bSuperCompleted = true;
+			pSuperBlock = nullptr;
 		}
 
 		void pokeThread() override

@@ -91,7 +91,15 @@ void LogMsg(MSG_TYPE type, std::string msg, Color* col, std::map<std::string, st
 	if (col)
 		nCol = col->getColor();
 
-	servicemain->message((int)type, msg.c_str(), nCol, mpArgs);
+	if (mpArgs)
+	{
+		servicemain->message((int)type, msg.c_str(), nCol, *mpArgs);
+	}
+	else
+	{
+		std::map<std::string, std::string> mEmpty;
+		servicemain->message((int)type, msg.c_str(), nCol, mEmpty);
+	}
 
 	if (g_pTracer && type == MT_TRACE)
 		g_pTracer->trace(msg, mpArgs);
@@ -181,7 +189,7 @@ IPC::PBlob IPCServiceMain::getSpecialPath(int32 key)
 	return IPC::PBlob(path, strlen(path));
 }
 
-void IPCServiceMain::message(int type, const char* msg, uint64 col, std::map<std::string, std::string> *mpArgs)
+void IPCServiceMain::message(int type, const char* msg, uint64 col, std::map<std::string, std::string> mArgs)
 {
 	Color color;
 	Color *pCol = &color;
@@ -195,18 +203,14 @@ void IPCServiceMain::message(int type, const char* msg, uint64 col, std::map<std
 	else
 		color = Color(65, 209, 7);
 
-	std::map<std::string, std::string> args;
-
 	if (type == MT_TRACE)
 	{
-		if (mpArgs)
-			(*mpArgs)["app"] = "Service";
-
-		LogMsg((MSG_TYPE)type, gcString(msg), pCol, mpArgs);
+		mArgs["app"] = "Service";
+		LogMsg((MSG_TYPE)type, gcString(msg), pCol, &mArgs);
 	}
 	else
 	{
-		LogMsg((MSG_TYPE)type, gcString("Service: {0}", msg), pCol, mpArgs);
+		LogMsg((MSG_TYPE)type, gcString("Service: {0}", msg), pCol, &mArgs);
 	}
 }
 
@@ -310,9 +314,9 @@ IPC::PBlob IPCServiceMain::getSpecialPath(int32 key)
 	return IPC::functionCall<IPC::PBlob, int32>(this, "getSpecialPath", key);
 }
 
-void IPCServiceMain::message(int type, const char* msg, uint64 col, std::map<std::string, std::string> *mpArgs)
+void IPCServiceMain::message(int type, const char* msg, uint64 col, std::map<std::string, std::string> mArgs)
 {
-	IPC::functionCallAsync(this, "message", type, msg, col, mpArgs);
+	IPC::functionCallAsync(this, "message", type, msg, col, mArgs);
 }
 
 void IPCServiceMain::startThread()

@@ -80,12 +80,16 @@ protected:
 		IPCParameterI* pParam = IPC::getParameter<A>();
         auto msg = vParamList[x];
 
-        if (msg->type != pParam->getType())
-			gcAssert(false);
-        else
-			pParam->deserialize(&msg->data, msg->size);
+		if (msg)
+		{
+			if (msg->type != pParam->getType())
+				gcAssert(false);
+			else
+				pParam->deserialize(&msg->data, msg->size);
+		}
 
 		vPList[x] = pParam;
+
  #ifdef __clang__
         ++x;
  #else
@@ -122,13 +126,28 @@ protected:
 
 		std::vector<IPCParameter*> vParamList;
 
+		uint32 done = 0;
+
 		for (int x = 0; x < sizeof...(Args); ++x)
 		{
-			auto msg = (IPCParameter*)buff;
-			buff += sizeofStruct(msg);
+			if (done >= size)
+			{
+				Warning("Failed to decode IPC argument {0} for {1}, not enough data.", x, m_strFunctionName);
 
-			vParamList.push_back(msg);
-			vPList.push_back(nullptr);
+				vParamList.push_back(nullptr);
+				vPList.push_back(nullptr);
+			}
+			else
+			{
+				auto msg = (IPCParameter*)buff;
+				auto s = sizeofStruct(msg);
+
+				done += s;
+				buff += s;
+
+				vParamList.push_back(msg);
+				vPList.push_back(nullptr);
+			}
 		}
 
 #ifdef __clang__
@@ -301,7 +320,7 @@ NetworkFunctionI* networkFunction(TObj* pObj, R (TObj::*func)(Args...), const ch
 
 
 class IPCEventI;
-
+class IPCManagerI;
 
 
 
@@ -316,9 +335,9 @@ public:
     //! @param id Class id
 	//! @param itemId Active item id (used for filtering)
 	//!
-	IPCClass(IPCManager* mang, uint32 id, DesuraId itemId);
+	IPCClass(IPCManagerI* mang, uint32 id, DesuraId itemId);
 
-	//! De-Constructor
+	//! DeConstructor
 	//!
 	~IPCClass();
 
@@ -359,12 +378,12 @@ public:
 	//!
 	//! @param name Function name
 	//! @param async Do an async function call (immediate void return)
-	//! @param a Paramater one
-	//! @param b Paramater two
-	//! @param c Paramater three
-	//! @param d Paramater four
-	//! @param e Paramater five
-	//! @param f Paramater six
+	//! @param a Parameter one
+	//! @param b Parameter two
+	//! @param c Parameter three
+	//! @param d Parameter four
+	//! @param e Parameter five
+	//! @param f Parameter six
 	//! @return Result
 	//!
 	IPCParameterI* callFunction(const char* name, bool async=false, IPCParameterI* a = nullptr, IPCParameterI* b = nullptr, IPCParameterI* c = nullptr, IPCParameterI* d = nullptr, IPCParameterI* e = nullptr, IPCParameterI* f = nullptr);
@@ -383,12 +402,12 @@ public:
 	//!
 	//! @param name Function name
 	//! @param async Do an async function call (immediate void return)
-	//! @param a Paramater one
-	//! @param b Paramater two
-	//! @param c Paramater three
-	//! @param d Paramater four
-	//! @param e Paramater five
-	//! @param f Paramater six
+	//! @param a Parameter one
+	//! @param b Parameter two
+	//! @param c Parameter three
+	//! @param d Parameter four
+	//! @param e Parameter five
+	//! @param f Parameter six
 	//! @return Result
 	//!
 	IPCParameterI* callLoopback(const char* name, bool async=false, IPCParameterI* a = nullptr, IPCParameterI* b = nullptr, IPCParameterI* c = nullptr, IPCParameterI* d = nullptr, IPCParameterI* e = nullptr, IPCParameterI* f = nullptr);
@@ -427,7 +446,7 @@ protected:
 	//!
 	void setItemId(DesuraId itemId){m_uiItemId = itemId;}
 	
-	IPCManager* m_pManager;	//!< Manager
+	IPCManagerI* m_pManager;	//!< Manager
 
 
 	//! Handles a new message from other side
@@ -460,6 +479,8 @@ protected:
 	//!
 	virtual void handleEventTrigger(const char* buff, uint32 size);
 
+protected:
+	IPCParameterI* doHandleFunctionCall(const char* buff, uint32 size, uint32 &nFunctionId, uint32 &nFunctionHash);
 
 private:
 	uint32 m_uiId;
@@ -492,7 +513,7 @@ class IPCEventI
 {
 public:
 	virtual ~IPCEventI(){;}
-	virtual void trigger(char* buff, uint32 size)=0;
+	virtual void trigger(std::vector<IPCParameterI*> &vParams) = 0;
 };
 
 
@@ -505,15 +526,16 @@ public:
 		m_pEvent = e;
 	}	
 
-	void trigger(char* buff, uint32 size)
+	void trigger(std::vector<IPCParameterI*> &vParams)
 	{
-		IPCParameterI *r = IPC::getParameter<E>();
-		r->deserialize(buff, size);
+		if (vParams.size() != 1)
+		{
+			gcAssert(false);
+			return;
+		}
 
-		E ret = IPC::getParameterValue<E>(r);
+		E ret = IPC::getParameterValue<E>(vParams[0]);
 		m_pEvent->operator()(ret);
-
-		safe_delete(r);
 	}
 
 private:
@@ -529,7 +551,7 @@ public:
 		m_pEvent = e;
 	}	
 
-	void trigger(char* buff, uint32 size)
+	void trigger(std::vector<IPCParameterI*> &vParams)
 	{
 		m_pEvent->operator()();
 	}
@@ -681,15 +703,41 @@ void functionCallV(IPC::IPCClass* cl, const char* name, Args& ... args)
 template <typename ... Args>
 void functionCallAsync(IPC::IPCClass* cl, const char* name, Args&& ... args)
 {
-	IPC::IPCParameterI* r = cl->callFunction(name, true, IPC::getParameter(args)...);
-	handleReturnV(r);
+	try
+	{
+		IPC::IPCParameterI* r = cl->callFunction(name, true, IPC::getParameter(args)...);
+		handleReturnV(r);
+	}
+	catch (gcException &e)
+	{
+		if (std::string("message") != name)
+			WarningS("Unhandled exception calling {0} async: {1}", name, e);
+	}
+	catch (...)
+	{
+		if (std::string("message") != name)
+			WarningS("Unhandled unknown exception calling {0} async.", name);
+	}
 }
 
 template <typename ... Args>
 void loopbackCallAsync(IPC::IPCClass* cl, const char* name, Args& ... args)
 {
-	IPC::IPCParameterI* r = cl->callLoopback(name, true, IPC::getParameter(args)...);
-	handleReturnV(r);
+	try
+	{
+		IPC::IPCParameterI* r = cl->callLoopback(name, true, IPC::getParameter(args)...);
+		handleReturnV(r);
+	}
+	catch (gcException &e)
+	{
+		if (std::string("message") != name)
+			WarningS("Unhandled exception calling {0} async: {1}", name, e);
+	}
+	catch (...)
+	{
+		if (std::string("message") != name)
+			WarningS("Unhandled unknown exception calling {0} async.", name);
+	}
 }
 
 

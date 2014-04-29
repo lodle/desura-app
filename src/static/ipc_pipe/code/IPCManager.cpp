@@ -59,7 +59,13 @@ void RegIPCClass(uint32 id, newClassFunc funct)
 class PipeMessage
 {
 public:
-	PipeMessage(char* message, uint32 size)
+	PipeMessage(uint32 size)
+	{
+		m_uiSize = size;
+		m_szBuffer = new char[size];
+	}
+
+	PipeMessage(const char* message, uint32 size)
 	{
 		m_uiSize = size;
 		m_szBuffer = new char[size];
@@ -386,31 +392,25 @@ void IPCManager::processInternalMessage(uint8 type, const char* buff, uint32 siz
 	else if (type == MT_CREATECLASS)
 	{
 		IPCCreateClass *cc = (IPCCreateClass*)buff;
-		IPCParameterI* res = createClass(cc->hash, cc->id);
 
-		uint32 bsize = 0;
-		char* data = res->serialize(bsize);
+		auto res = std::unique_ptr<IPCParameterI>(createClass(cc->hash, cc->id));
+		uint32 bsize = res->getSerializeSize();
 
-		IPCParameter pc;
-		pc.size = bsize;
-		pc.type = res->getType();
-
-		safe_delete(res);
-
-		char* nbuff = new char[bsize+IPCCreateClassRetSIZE+IPCParameterSIZE];
-
+		gcBuff tempBuff(bsize + IPCCreateClassRetSIZE + IPCParameterSIZE);
+		char* nbuff = tempBuff.c_ptr();
 
 		IPCCreateClassRet *cr = (IPCCreateClassRet*)nbuff;
 		cr->id = cc->id;
 		cr->size = bsize + IPCParameterSIZE;
 		cr->lock = cc->lock;
 
-		memcpy(&cr->data, &pc, IPCParameterSIZE); 
-		memcpy(&cr->data+IPCParameterSIZE, data, bsize); 
+		IPCParameter* pc = (IPCParameter*)&cr->data;
+		pc->size = bsize;
+		pc->type = res->getType();
+
+		res->serialize(&pc->data);
 
 		sendMessage( (const char*)cr, sizeofStruct(cr), 0, MT_CREATECLASSRETURN);
-		safe_delete(nbuff);
-		safe_delete(data);
 	}
 	else if (type == MT_CREATECLASSRETURN)
 	{
@@ -441,11 +441,64 @@ void IPCManager::stop()
 }
 
 
+void IPCManager::joinPartMessages(std::vector<PipeMessage*> &vMessages)
+{
+	std::vector<IPCMessage*> vIPCMessages;
+	uint32 totSize = IPCMessageSIZE;
+
+	for (auto p : vMessages)
+	{
+		IPCMessage *pIPCM = (IPCMessage*)p->getBuffer();
+		vIPCMessages.push_back(pIPCM);
+		totSize += pIPCM->size;
+	}
+		
+	std::sort(begin(vIPCMessages), end(vIPCMessages), [](IPCMessage* a, IPCMessage* b){
+		return a->part < b->part;
+	});
+
+	gcBuff buff(totSize);
+
+	IPCMessage *msg = (IPCMessage*)buff.c_ptr();
+
+	msg->id = vIPCMessages[0]->id;
+	msg->type = vIPCMessages[0]->type;
+	msg->tsize = totSize;
+	msg->size = totSize - IPCMessageSIZE;
+	msg->part = 0;
+	msg->totparts = 1;
+	msg->serial = vIPCMessages[0]->serial;
+
+	auto temp = &msg->data;
+
+	for (auto p : vIPCMessages)
+	{
+		memcpy(temp, &p->data, p->size);
+		temp += p->size;
+	}
+
+	recvMessage(msg);
+	safe_delete(vMessages);
+}
 
 void IPCManager::recvMessage(IPCMessage* msg)
 {
 	if (!msg)
 		return;
+
+	if (msg->totparts != 1)
+	{
+		std::lock_guard<std::mutex> guard(m_PartLock);
+		m_mOutstandingPartMessages[msg->serial].push_back(new PipeMessage((const char*)msg, msg->tsize));
+
+		if (m_mOutstandingPartMessages[msg->serial].size() == msg->totparts)
+		{
+			joinPartMessages(m_mOutstandingPartMessages[msg->serial]);
+			m_mOutstandingPartMessages.erase(m_mOutstandingPartMessages.find(msg->serial));
+		}
+
+		return;
+	}
 
 	if (msg->id == 0)
 	{
@@ -512,6 +565,40 @@ void IPCManager::recvMessage(IPCMessage* msg)
 	}
 }
 
+
+class PendingPartRecvMessage
+{
+public:
+	PendingPartRecvMessage(IPCMessage* pMsg, uint32 size)
+		: left(pMsg->tsize - size)
+		, buff(pMsg->tsize)
+	{
+		memcpy(buff.c_ptr(), (const char*)pMsg, size);
+	}
+
+	void append(const char* szBuff, uint32 nSize)
+	{
+		gcAssert(nSize <= left);
+		memcpy(buff.c_ptr() + (buff.size() - left), (const char*)szBuff, nSize);
+		left -= nSize;
+	}
+
+	operator IPCMessage* ()
+	{
+		gcAssert(left == 0);
+		return (IPCMessage*)buff.c_ptr();
+	}
+
+	uint32 getLeft()
+	{
+		return left;
+	}
+
+private:
+	uint32 left;
+	gcBuff buff;
+};
+
 void IPCManager::recvMessage(const char* buff, uint32 size)
 {
 	uint32 processed = 0;
@@ -526,10 +613,39 @@ void IPCManager::recvMessage(const char* buff, uint32 size)
 			return;
 		}
 
-		uint32 messageSize = buffToUint32(buff+processed);
-		recvMessage((IPCMessage*)(buff+processed));
+		if (m_pPendingMessage)
+		{
+			if (m_pPendingMessage->getLeft() < left)
+			{
+				auto t = m_pPendingMessage->getLeft();
+				m_pPendingMessage->append(buff + processed, m_pPendingMessage->getLeft());
 
-		processed += messageSize;
+				recvMessage(*m_pPendingMessage);
+				safe_delete(m_pPendingMessage);
+
+				processed += t;
+			}
+			else
+			{
+				m_pPendingMessage->append(buff + processed, left);
+				processed += left;
+			}
+		}
+		else
+		{
+			IPCMessage* pMsg = (IPCMessage*)(buff + processed);
+
+			if (pMsg->tsize > left)
+			{
+				m_pPendingMessage = std::make_shared<PendingPartRecvMessage>(pMsg, left);
+				processed -= left;
+			}
+			else
+			{
+				recvMessage(pMsg);
+				processed += pMsg->tsize;
+			}
+		}
 	}
 }
 
@@ -538,23 +654,54 @@ void IPCManager::sendMessage(const char* buff, uint32 size, uint32 id, uint8 typ
 	if (m_bDisconnected)
 		throw gcException(ERR_IPC, "Pipe is disconnected!");
 
-	uint32 tsize = size + IPCMessageSIZE;
-	char* buffer = new char[tsize];
+	uint64 serial = ++m_nMsgSerial;
 
-	IPCMessage *msg = (IPCMessage*)buffer;
+	auto createMessage = [id, type, serial](const char* buff, uint32 size, uint8 part, uint8 totparts)
+	{
+		auto pm = new PipeMessage(IPCMessageSIZE + size);
+		IPCMessage *msg = (IPCMessage*)pm->getBuffer();
 
-	msg->id = id;
-	msg->type = type;
-	msg->tsize = tsize;
-	msg->size = size;
+		msg->id = id;
+		msg->type = type;
+		msg->tsize = IPCMessageSIZE + size;
+		msg->size = size;
+		msg->part = part;
+		msg->totparts = totparts;
+		msg->serial = serial;
 
-	memcpy(&msg->data, buff, size);
+		memcpy(&msg->data, buff, size);
+		return pm;
+	};
 
-	m_mVectorMutex.lock();
-	m_vPipeMsgs.push_back(new PipeMessage(buffer, tsize));
-	m_mVectorMutex.unlock();
+	std::vector<std::pair<uint32, const char*>> vMsgParts;
 
-	safe_delete(buffer);
+	auto tbuff = buff;
+
+	do
+	{
+		auto s = size;
+
+		if (s > (BUFSIZE - IPCMessageSIZE))
+			s = BUFSIZE - IPCMessageSIZE;
+
+		vMsgParts.push_back(std::make_pair(s, tbuff));
+
+		size -= s;
+		tbuff += s;
+	} 
+	while (size > 0);
+
+	int x = 0;
+
+	for (auto p : vMsgParts)
+	{
+		auto pm = createMessage(p.second, p.first, x, vMsgParts.size());
+		++x;
+
+		std::lock_guard<std::mutex> guard(m_mVectorMutex);
+		m_vPipeMsgs.push_back(pm);	
+	}
+
 
 #ifdef WIN32
 	if (m_hEvent != INVALID_HANDLE_VALUE)
@@ -579,6 +726,8 @@ void IPCManager::sendLoopbackMessage(const char* buff, uint32 size, uint32 id, u
 	msg->type = type;
 	msg->tsize = tsize;
 	msg->size = size;
+	msg->part = 0;
+	msg->totparts = 1;
 
 	memcpy(&msg->data, buff, size);
 
@@ -611,7 +760,10 @@ bool IPCManager::getMessageToSend(char* buffer, uint32 buffSize, uint32& msgSize
 		return false;
 
 	msgSize = msg->getSize();
+
+	gcAssert(msgSize <= buffSize);
 	uint32 cpysize = (msgSize > buffSize)?buffSize:msgSize;
+	msgSize = cpysize;
 
 	memcpy(buffer, msg->getBuffer(), cpysize);
 	safe_delete(msg);

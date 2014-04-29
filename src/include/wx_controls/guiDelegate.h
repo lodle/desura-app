@@ -36,6 +36,7 @@ $/LicenseInfo$
 #include <type_traits>
 #include <memory>
 #include <atomic>
+#include <list>
 
 class gcPanel;
 class gcDialog;
@@ -102,16 +103,27 @@ public:
 
 	void invoke()
 	{
-		std::lock_guard<std::mutex> guard(m_Lock);
-		m_fnCallback();
+		std::lock_guard<std::recursive_mutex> guard(m_Lock);
+
+		m_bInCallback = true;
+
+		if (m_fnCallback)
+			m_fnCallback();
+
+		m_bInCallback = false;
+
 		m_pHelper.done();
 	}
 
 	void cancel()
 	{
-		std::lock_guard<std::mutex> guard(m_Lock);
-		m_fnCallback = std::function<void()>();
-		m_pHelper.done();
+		std::lock_guard<std::recursive_mutex> guard(m_Lock);
+
+		if (!m_bInCallback)
+		{
+			m_fnCallback = std::function<void()>();
+			m_pHelper.done();
+		}
 	}
 
 	void wait()
@@ -121,12 +133,13 @@ public:
 
 	bool isCanceled()
 	{
-		std::lock_guard<std::mutex> guard(m_Lock);
+		std::lock_guard<std::recursive_mutex> guard(m_Lock);
 		return m_pHelper.isDone();
 	}
 
 private:
-	std::mutex m_Lock;
+	bool m_bInCallback = false;
+	std::recursive_mutex m_Lock;
 	EventHelper m_pHelper;
 	std::function<void()> m_fnCallback;
 };
@@ -252,10 +265,14 @@ template <typename TObj, typename ... Args>
 class GuiDelegate : public DelegateBase<Args...>, public InvokeI
 {
 public:
-	GuiDelegate(std::function<void(Args&...)> callback, uint64 compareHash, TObj *pObj, MODE mode)
+	GuiDelegate(std::function<void(Args&...)> callback, uint64 compareHash, TObj *pObj, MODE mode, const char* szFile, uint32 nLine)
 		: DelegateBase<Args...>(callback, compareHash)
 		, m_Mode(mode)
 		, m_pObj(pObj)
+#ifdef DEBUG
+		, m_szFile(szFile)
+		, m_nLine(nLine)
+#endif
 	{
 		gcAssert(m_pObj);
 
@@ -287,6 +304,8 @@ public:
 		if (m_pInvoker)
 			m_pInvoker->cancel();
 
+		cancelPendingInvokers();
+
 		if (m_pObj && bDeregister)
 			m_pObj->deregisterDelegate(this);
 
@@ -295,7 +314,11 @@ public:
 
 	DelegateI<Args...>* clone() override
 	{
-		return new GuiDelegate(DelegateBase<Args...>::m_fnCallback, DelegateBase<Args...>::getCompareHash(), m_pObj, m_Mode);
+#ifdef DEBUG
+		return new GuiDelegate(DelegateBase<Args...>::m_fnCallback, DelegateBase<Args...>::getCompareHash(), m_pObj, m_Mode, m_szFile, m_nLine);
+#else
+		return new GuiDelegate(DelegateBase<Args...>::m_fnCallback, DelegateBase<Args...>::getCompareHash(), m_pObj, m_Mode, "", 0);
+#endif
 	}
 
 	void callback(Args& ... args)
@@ -316,9 +339,10 @@ public:
 			std::function<void()> pcb = std::bind(&GuiDelegate<TObj, Args...>::callback, this, args...);
 
 			auto invoker = std::make_shared<Invoker>(pcb);
+			addPendingInvoker(invoker);
+
 			auto event = new wxGuiDelegateEvent(invoker, m_pObj->GetId());
 			m_pObj->GetEventHandler()->QueueEvent(event);
-
 		}
 		else if (m_Mode == MODE_PROCESS || Thread::BaseThread::GetCurrentThreadId() == GetMainThreadId())
 		{
@@ -345,12 +369,50 @@ protected:
 		m_pInvoker = i;
 	}
 
+	void addPendingInvoker(const std::shared_ptr<Invoker> &i)
+	{
+		std::lock_guard<std::mutex> guard(m_InvokerMutex);
+		removePendingExpiredInvokers();
+		m_vPendingInvokers.push_back(i);
+	}
+
+	void cancelPendingInvokers()
+	{
+		removePendingExpiredInvokers();
+
+		for (auto i : m_vPendingInvokers)
+		{
+			auto invoker = i.lock();
+
+			if (!invoker)
+				continue;
+
+			invoker->cancel();
+		}
+
+		m_vPendingInvokers.clear();
+	}
+
+	void removePendingExpiredInvokers()
+	{
+		m_vPendingInvokers.remove_if([](std::weak_ptr<Invoker> &invoker){
+			return invoker.expired();
+		});
+	}
+
 private:
 	MODE m_Mode;
 	TObj *m_pObj = nullptr;
 	std::atomic<bool> m_bCanceled;
 	std::mutex m_InvokerMutex;
 	std::shared_ptr<Invoker> m_pInvoker;
+
+	std::list<std::weak_ptr<Invoker>> m_vPendingInvokers;
+
+#ifdef DEBUG
+	const char* m_szFile = nullptr;
+	uint32 m_nLine = 0;
+#endif
 };
 
 
@@ -366,8 +428,17 @@ inline bool validateForm(TObj* pObj)
 	return (pan || frm || dlg || swin || gtbi);
 }
 
+#ifdef DEBUG
+#define guiDelegate( ... ) guiDelegateImpl(__FILE__, __LINE__, __VA_ARGS__)
+#define guiExtraDelegate( ... ) guiExtraDelegateImpl(__FILE__, __LINE__, __VA_ARGS__)
+#else
+#define guiDelegate( ... ) guiDelegateImpl("", 0, __VA_ARGS__)
+#define guiExtraDelegate( ... ) guiExtraDelegateImpl("", 0, __VA_ARGS__)
+#endif
+
+
 template <typename TObj, typename ... Args>
-DelegateI<Args...>* guiDelegate(TObj* pObj, void (TObj::*fnCallback)(Args...), MODE mode = MODE_PENDING)
+DelegateI<Args...>* guiDelegateImpl(const char* szFile, uint32 nLine, TObj * pObj, void (TObj::*fnCallback)(Args...), MODE mode = MODE_PENDING)
 {
 	if (!validateForm(pObj))
 	{
@@ -380,11 +451,11 @@ DelegateI<Args...>* guiDelegate(TObj* pObj, void (TObj::*fnCallback)(Args...), M
 		(*pObj.*fnCallback)(args...);
 	};
 
-	return new GuiDelegate<TObj, Args...>(callback, MakeUint64(pObj, (void*)&typeid(fnCallback)), pObj, mode);
+	return new GuiDelegate<TObj, Args...>(callback, MakeUint64(pObj, (void*)&typeid(fnCallback)), pObj, mode, szFile, nLine);
 }
 
 template <typename TObj, typename ... Args, typename TExtra>
-DelegateI<Args...>* guiExtraDelegate(TObj* pObj, void (TObj::*fnCallback)(TExtra, Args...), TExtra tExtra, MODE mode = MODE_PENDING)
+DelegateI<Args...>* guiExtraDelegateImpl(const char* szFile, uint32 nLine, TObj* pObj, void (TObj::*fnCallback)(TExtra, Args...), TExtra tExtra, MODE mode = MODE_PENDING)
 {
 	if (!validateForm(pObj))
 	{
@@ -397,7 +468,7 @@ DelegateI<Args...>* guiExtraDelegate(TObj* pObj, void (TObj::*fnCallback)(TExtra
 		(*pObj.*fnCallback)(tExtra, args...);
 	};
 
-	return new GuiDelegate<TObj, Args...>(callback, MakeUint64(pObj, (void*)&typeid(fnCallback)), pObj, mode);
+	return new GuiDelegate<TObj, Args...>(callback, MakeUint64(pObj, (void*)&typeid(fnCallback)), pObj, mode, szFile, nLine);
 }
 
 #endif //DESURA_GUIDELEGATE_H
