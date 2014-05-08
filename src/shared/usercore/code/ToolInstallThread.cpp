@@ -33,16 +33,12 @@ $/LicenseInfo$
 
 #include "ToolTransaction.h"
 
-namespace UserCore
-{
-namespace Misc
-{
+using namespace UserCore::Misc;
 
 
 void ToolInstallThread::run()
 {
-
-	uint32 timeout = 5*60; //five mins
+	const uint32 timeout = 5*60; //five mins
 
 	while (!isStopped())
 	{
@@ -54,19 +50,23 @@ void ToolInstallThread::run()
 		if (isStopped())
 			break;
 
-		bool timedout = m_InstallWait.wait(timeout);
+		m_InstallWait.wait(0, 300);
 
 		if (m_bStillInstalling)
 			continue;
 
 		m_InstallLock.lock();
-		uint32 size = m_dvInstallQue.size();
+		uint32 size = m_mTransactions.size();
 		m_InstallLock.unlock();
 
-		if (timedout && size == 0)
+		if (size == 0)
 		{
+			bool timedout = m_InstallWait.wait(timeout);
+
+			if (!timedout)
+				continue;
+
 			//timeout happened. Stop
-			
 #ifdef WIN32
 			safe_delete(m_pIPCClient);
 #endif
@@ -85,40 +85,42 @@ void ToolInstallThread::doFirstInstall()
 {
 	gcTrace("");
 
-	m_InstallLock.lock();
-	uint32 size = m_dvInstallQue.size();
-	m_InstallLock.unlock();
+	{
+		std::lock_guard<std::mutex> guard(m_InstallLock);
 
-	if (size == 0)
-		return;
+		if (m_dvInstallQue.empty())
+			return;
 
-	m_InstallLock.lock();
-	m_CurrentInstall = m_dvInstallQue.front();
-	m_dvInstallQue.pop_front();
-	m_InstallLock.unlock();
+		m_CurrentInstall = m_dvInstallQue.front();
+		m_dvInstallQue.pop_front();
+	}
 
 	if (!preInstallStart())
 		return;
 
-	bool startRes = false;
+	ToolStartRes startRes = ToolStartRes::Failed;
 
-	m_MapLock.lock();
-	std::map<ToolTransactionId, ToolTransInfo*>::iterator it = m_mTransactions.find(m_CurrentInstall);
-	
-	if (it != m_mTransactions.end())
-		startRes = it->second->startNextInstall(getToolMain(), m_CurrentInstallId);
-
-	m_MapLock.unlock();
-
-	if (!startRes)
 	{
+		std::lock_guard<std::mutex> guard(m_MapLock);
+
+		auto it = m_mTransactions.find(m_CurrentInstall);
+
+		if (it != m_mTransactions.end())
+			startRes = it->second->startNextInstall(getToolMain(), m_CurrentInstallId);
+	}
+
+	switch (startRes)
+	{
+	case ToolStartRes::NoToolsLeft:
+	case ToolStartRes::Failed:
 		m_CurrentInstall = -1;
 		doFirstInstall();
-	}
-	else
-	{
+		break;
+
+	case ToolStartRes::Success:
 		m_bStillInstalling = true;
-	}
+		break; 
+	};
 }
 
 bool ToolInstallThread::hasToolMain()
@@ -136,14 +138,14 @@ void ToolInstallThread::doNextInstall()
 	if (m_CurrentInstall == -1)
 		return;
 
-	m_MapLock.lock();
-	std::map<ToolTransactionId, ToolTransInfo*>::iterator it = m_mTransactions.find(m_CurrentInstall);
+	std::lock_guard<std::mutex> guard(m_MapLock);
+	auto it = m_mTransactions.find(m_CurrentInstall);
 	
 	if (it != m_mTransactions.end() && hasToolMain())
 	{
 		it->second->onINComplete();
 
-		if (!it->second->startNextInstall(getToolMain(), m_CurrentInstallId))
+		if (it->second->startNextInstall(getToolMain(), m_CurrentInstallId) != ToolStartRes::Success)
 			m_CurrentInstall = -1;
 	}
 	else
@@ -151,8 +153,6 @@ void ToolInstallThread::doNextInstall()
 		//install must be canceled
 		m_CurrentInstall = -1;
 	}
-
-	m_MapLock.unlock();
 }
 
 void ToolInstallThread::onINComplete(int32 &result)
@@ -175,10 +175,8 @@ void ToolInstallThread::onINComplete(int32 &result)
 
 	if (installError)
 	{
-		m_MapLock.lock();
-		std::map<ToolTransactionId, ToolTransInfo*>::iterator it = m_mTransactions.find(m_CurrentInstall);
-
-
+		std::lock_guard<std::mutex> guard(m_MapLock);
+		auto it = m_mTransactions.find(m_CurrentInstall);
 
 		if (it != m_mTransactions.end() && hasToolMain())
 		{
@@ -189,8 +187,6 @@ void ToolInstallThread::onINComplete(int32 &result)
 			it->second->onINError(e);
 			m_CurrentInstall = -1;
 		}
-		
-		m_MapLock.unlock();
 	}
 
 	m_pToolManager->saveItems();
@@ -201,31 +197,30 @@ void ToolInstallThread::onINError(gcException &error)
 {
 	m_bStillInstalling = false;
 
-	m_MapLock.lock();
+	std::lock_guard<std::mutex> guard(m_MapLock);
 	std::map<ToolTransactionId, ToolTransInfo*>::iterator it = m_mTransactions.find(m_CurrentInstall);
 	
 	if (it != m_mTransactions.end())
 		it->second->onINError(error);
 
 	m_CurrentInstall = -1;
-
-	m_MapLock.unlock();
 	m_InstallWait.notify();
 }
 
 void ToolInstallThread::startInstall(ToolTransactionId ttid)
 {
-	m_InstallLock.lock();
-	m_dvInstallQue.push_back(ttid);
-	m_InstallLock.unlock();
+	gcTrace("TTI: {0}", (uint32)ttid);
 
+	std::lock_guard<std::mutex> guard(m_InstallLock);
+	m_dvInstallQue.push_back(ttid);
 	m_InstallWait.notify();
 }
 
 void ToolInstallThread::cancelInstall(ToolTransactionId ttid)
 {
-	m_InstallLock.lock();
+	gcTrace("TTI: {0}", (uint32)ttid);
 
+	std::lock_guard<std::mutex> guard(m_InstallLock);
 	if (m_CurrentInstall == ttid)
 	{
 
@@ -241,9 +236,4 @@ void ToolInstallThread::cancelInstall(ToolTransactionId ttid)
 			break;
 		}
 	}
-
-	m_InstallLock.unlock();
-}
-
-}
 }

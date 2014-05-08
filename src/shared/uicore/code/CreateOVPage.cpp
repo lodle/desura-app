@@ -34,13 +34,13 @@ $/LicenseInfo$
   #include <Shellapi.h>
 #endif
 
-BEGIN_EVENT_TABLE( CreateMCFOverview, BasePage )
-	EVT_BUTTON( wxID_ANY, CreateMCFOverview::onButtonClick )
-END_EVENT_TABLE()
-
 CreateMCFOverview::CreateMCFOverview(wxWindow* parent) 
 	: BasePage(parent, wxID_ANY, wxDefaultPosition, wxSize( 415,148 ), wxTAB_TRAVERSAL)
 {
+	Bind(wxEVT_BUTTON, &CreateMCFOverview::onButtonClick, this);
+
+	gcTrace("");
+
 	wxFlexGridSizer* fgSizer2;
 	fgSizer2 = new wxFlexGridSizer( 4, 1, 0, 0 );
 	fgSizer2->AddGrowableRow( 2 );
@@ -158,6 +158,8 @@ void CreateMCFOverview::onButtonClick( wxCommandEvent& event )
 {
 	if (event.GetId() == m_butUpload->GetId())
 	{
+		gcTrace("But Upload");
+
 		ut utInfo;
 		utInfo.path = m_szPath;
 		utInfo.id = this->getItemId();
@@ -168,14 +170,17 @@ void CreateMCFOverview::onButtonClick( wxCommandEvent& event )
 	}
 	else if (event.GetId() == m_butViewFile->GetId())
 	{
+		gcTrace("But View File");
+
 #ifdef WIN32
 		ShellExecuteA(nullptr, "explore" , m_szFolderPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 #else
-	UTIL::LIN::launchFolder(m_szFolderPath.c_str());
+		UTIL::LIN::launchFolder(m_szFolderPath.c_str());
 #endif
 	}
 	else
 	{
+		gcTrace("But Close");
 		GetParent()->Close();
 	}
 }

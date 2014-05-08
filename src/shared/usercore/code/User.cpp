@@ -60,11 +60,14 @@ using namespace UserCore;
 User::User()
 	: m_bAltProvider(false)
 {
+	gcTrace("");
 	onLoginItemsLoadedEvent += delegate(this, &User::onLoginItemsLoaded);
 }
 
 User::~User() 
 {
+	gcTrace("");
+
 	while (m_bLocked)
 	{
 		m_WaitCond.wait(0, 500);
@@ -493,6 +496,9 @@ void User::updateUninstallInfo()
 void User::updateUninstallInfo(DesuraId id, uint64 installSize)
 {
 #ifdef WIN32
+	if (getItemManager())
+		getItemManager()->saveItem(getItemManager()->findItemInfo(id));
+
 	if (getServiceMain())
 		getServiceMain()->setUninstallRegKey(id.toInt64(), installSize);
 #endif
